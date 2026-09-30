@@ -275,8 +275,8 @@ body.in-hud .about-link, body.in-rewind .about-link { display: none; }
 .poster-loading.is-done { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .poster-tip { margin: 12px 0 4px; text-align: center; font-size: 12.5px; color: var(--gold); letter-spacing: 0.16em; }
-.chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0 2px; }
-.chips button { height: 34px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; letter-spacing: 0.12em; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.chips { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 12px 0 2px; }
+.chips button { height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; letter-spacing: 0.08em; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .chips button i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.25); }
 .chips button[aria-checked="true"] { border-color: var(--gold-soft); color: var(--gold); background: rgba(224, 198, 150, 0.08); }
 

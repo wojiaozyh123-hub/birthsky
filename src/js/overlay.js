@@ -30,7 +30,7 @@ export function drawMoon(ctx, x, y, r, illum, limbAngle, opts = {}) {
   const e = r * (1 - 2 * illum);
   ctx.beginPath();
   ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2, false);
-  ctx.ellipse(0, 0, Math.abs(e), r, 0, Math.PI / 2, -Math.PI / 2, e < 0);
+  ctx.ellipse(0, 0, Math.abs(e), r, 0, Math.PI / 2, -Math.PI / 2, e > 0);
   ctx.closePath();
   const lit = ctx.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r * 1.05);
   lit.addColorStop(0, opts.light || '#fbf8ef');
@@ -95,11 +95,12 @@ export class Overlay {
     if (hz) { // everything celestial is clipped to the sky
       ctx.beginPath(); ctx.arc(hz.x, hz.y, hz.r, 0, TAU); ctx.clip();
     }
+    this.boxes = [];
     if (vis.lines > 0.001) this.drawLines(ctx, s, unit, theme);
     if (vis.sweepOn > 0.001 && hz) this.drawSweep(ctx, s, hz, unit);
+    if (vis.bodies > 0.001) this.drawBodies(ctx, s, unit, theme);
     if (vis.labels > 0.001) this.drawConstellationNames(ctx, s, unit, theme);
     if (vis.names > 0.001) this.drawStarNames(ctx, s, unit, theme);
-    if (vis.bodies > 0.001) this.drawBodies(ctx, s, unit, theme);
     if (s.sel) this.drawSelection(ctx, s, unit);
     this.drawRipples(ctx, s);
     ctx.restore();
@@ -153,7 +154,7 @@ export class Overlay {
     ctx.font = `${size}px ${FONT_SERIF}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const boxes = this.boxes = [];
+    const boxes = this.boxes;
     for (const l of set.labels) {
       if (l.rank > maxRank) continue;
       mul(M, l.v, n);
@@ -210,6 +211,7 @@ export class Overlay {
         drawMoon(ctx, p.x, p.y, r, sky.moonPhase.illum, ang, s.moonStyle);
         ctx.globalAlpha = 1;
         if (vis.bodyLabels) label(ctx, '月亮', p.x, p.y + r + 10 * unit, unit, rgba(theme.label, a * 0.8));
+        this.boxes.push([p.x - r - 4, p.y - r - 4, p.x + r + 4, p.y + r + 18 * unit]);
       } else if (b.id === 'Sun') {
         const r = Math.max(7 * unit, R * 0.022);
         const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 6);
@@ -219,6 +221,7 @@ export class Overlay {
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(p.x, p.y, r * 6, 0, TAU); ctx.fill();
         if (vis.bodyLabels) label(ctx, '太阳', p.x, p.y + r + 12 * unit, unit, rgba(theme.label, a * 0.85));
+        this.boxes.push([p.x - r - 4, p.y - r - 4, p.x + r + 4, p.y + r + 20 * unit]);
       } else {
         const bright = Math.max(0.35, Math.min(1, (2.5 - b.mag) / 4));
         const r = (2.2 + 2.2 * bright) * unit * (s.poster ? 1 : 1);
@@ -232,6 +235,7 @@ export class Overlay {
         ctx.fillStyle = rgba([255, 252, 240], a);
         ctx.beginPath(); ctx.arc(p.x, p.y, r * 0.55, 0, TAU); ctx.fill();
         if (vis.bodyLabels) label(ctx, b.zh, p.x, p.y + r * 2 + 9 * unit, unit, rgba(c, a * 0.9));
+        this.boxes.push([p.x - 14 * unit, p.y - r * 2, p.x + 14 * unit, p.y + r * 2 + 16 * unit]);
       }
     }
   }

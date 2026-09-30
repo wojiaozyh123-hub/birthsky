@@ -517,8 +517,8 @@ function stepRewind(now) {
   // so trails look the same at 20 or 120 fps and never burn out near the pole
   const dt = Math.min(0.1, Math.max(0.004, (now - (r.lastNow ?? now - 16)) / 1000));
   r.lastNow = now;
-  app.vis.trail.fade = Math.exp(-dt / 0.42);
-  app.vis.trail.gain = (3.2 * dt) / n;
+  app.vis.trail.fade = Math.exp(-dt / 0.55);
+  app.vis.trail.gain = (4.6 * dt) / n;
   app.vis.trail.Ms = Ms;
   app.vis.trail.clear = s === 0 && r.cleared !== true;
   if (s > 0) r.cleared = true;

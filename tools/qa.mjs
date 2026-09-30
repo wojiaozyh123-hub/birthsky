@@ -84,6 +84,28 @@ async function toSky(page) {
 }
 
 const S = {
+  async wechat() {
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.54(0x18003630) NetType/WIFI Language/zh_CN');
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await page.emulateTimezone('Asia/Shanghai');
+    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    page.setDefaultTimeout(60000);
+    await page.goto(base + `?p=${encodePerson()}`, { waitUntil: 'domcontentloaded' });
+    await toSky(page);
+    await page.evaluate(() => { window.__birthsky.own = true; document.querySelector('#hud').classList.remove('is-guest'); document.querySelector('#guest-bar').classList.remove('is-active'); });
+    await sleep(400);
+    await tap(page, '#btn-share');
+    await sleep(900);
+    await shot(page, 'wx-guide');
+    console.log('shared url:', await page.evaluate(() => location.href), '| title:', await page.title());
+    await page.click('#share-guide');
+    await sleep(600);
+    await page.evaluate(() => window.__birthsky.api.openPoster('single'));
+    await page.waitForSelector('#poster-img.is-ready', { timeout: 60000 });
+    console.log('poster tip:', await page.$eval('#poster-tip', (e) => e.textContent), '| save hidden:', await page.$eval('#btn-save', (e) => e.hidden));
+    await page.close();
+  },
   async rewind() {
     const page = await newPage(`?p=${encodePerson({ name: '阿星', date: '1995-12-20', time: '23:10', city: '北京', region: '', lat: 39.91, lon: 116.4 })}`);
     await waitStart(page);
