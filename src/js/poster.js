@@ -179,7 +179,9 @@ export class PosterStudio {
     this.renderer.render({
       cam, M: sky.M, time: 0, sun: sky.sun.n, moon: sky.moon.n, moonIllum: sky.moonPhase.illum * (sky.moon.alt > -2 ? 1 : 0),
       twilight: st.sky === 'color' ? sm(-18, -2, sunAlt) * 0.7 : 0, day: st.sky === 'color' ? sm(-3, 10, sunAlt) * 0.35 : 0,
-      reveal: 6.8, mwAmt: st.sky === 'ink' ? 1.35 : 1.2, starGain: 1.15, dustGain: st.sky === 'ink' ? 0.55 : 1.3, sizeGain: Math.max(1, size / 430),
+      // ink on paper wants the stars as firm printed dots: larger cores, more of them saturated
+      reveal: 6.8, mwAmt: st.sky === 'ink' ? 1.1 : 1.08, starGain: st.sky === 'ink' ? 1.8 : 1.3, dustGain: st.sky === 'ink' ? 0.5 : 1.0,
+      sizeGain: st.sky === 'ink' ? Math.max(1, size / 300) : Math.max(1, size / 430),
       crisp: 1, flash: 0, sweep: 0, sweepOn: 0, sel: -1, twinkle: 0, terrainH: 0, bg: [0, 0, 0], dome: 1,
       exposure: 1.08, grain: 0, vignette: 0, trail: null,
     });

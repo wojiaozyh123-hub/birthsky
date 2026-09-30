@@ -40,15 +40,7 @@ function polylines(lines) {
   })]);
 }
 
-export async function loadCatalog(base = 'data/', q = '', onProgress = () => {}) {
-  let done = 0;
-  const tick = (x) => { onProgress(++done / 3); return x; };
-  const [bin, sky, mwImg] = await Promise.all([
-    fetch(base + 'stars.bin' + q).then((r) => r.arrayBuffer()).then(tick),
-    fetch(base + 'sky.json' + q).then((r) => r.json()).then(tick),
-    loadImage(base + 'milkyway.png' + q).then(tick),
-  ]);
-
+function parseStars(bin) {
   const view = new DataView(bin);
   const n = bin.byteLength / 6;
   const stars = { count: n, pos: new Float32Array(n * 3), mag: new Float32Array(n), color: new Float32Array(n * 3) };
@@ -59,6 +51,20 @@ export async function loadCatalog(base = 'data/', q = '', onProgress = () => {})
     stars.mag[i] = view.getInt8(i * 6 + 4) / 10;
     stars.color.set(bvToRgb(view.getInt8(i * 6 + 5) / 50), i * 3);
   }
+  return stars;
+}
+
+export async function loadCatalog(base = 'data/', q = '', onProgress = () => {}) {
+  let done = 0;
+  const tick = (x) => { onProgress(++done / 3); return x; };
+  const [bin, sky, mwImg] = await Promise.all([
+    fetch(base + 'stars.bin' + q).then((r) => r.arrayBuffer()).then(tick),
+    fetch(base + 'sky.json' + q).then((r) => r.json()).then(tick),
+    loadImage(base + 'milkyway.png' + q).then(tick),
+  ]);
+
+  // `stars` is the naked-eye catalogue (V ≤ 6.5): names point into it and the facts count it.
+  const stars = parseStars(bin);
 
   const conZh = Object.fromEntries(sky.iau.map(([id, zh]) => [id, zh]));
   const names = new Map();
@@ -76,13 +82,22 @@ export async function loadCatalog(base = 'data/', q = '', onProgress = () => {})
   };
 
   const mwLum = sampleImage(mwImg);
-  return { stars, names, iau, cn, conZh, mwImg, mwLum, dust: makeDust(mwLum) };
+  const catalog = { stars, names, iau, cn, conZh, mwImg, mwLum, dust: makeDust(mwLum), deep: null };
+  // The fainter stars (6.5 < V ≤ 8) only add depth to the picture; they arrive after first paint and
+  // the renderer fades them in. Never counted, never named.
+  catalog.deepReady = sky.deepCount
+    ? fetch(base + 'deep.bin' + q)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .then((b) => { if (b) catalog.deep = parseStars(b); return catalog.deep; })
+      .catch(() => null)
+    : Promise.resolve(null);
+  return catalog;
 }
 
 // Unresolved "star dust": faint points scattered by Milky Way brightness. The band really is made of
-// stars too faint to see one by one — these give it grain when you zoom in.
+// stars too faint to see one by one — these give it grain when you look closer.
 function sampleImage(img) {
-  const W = 512, H = 256;
+  const W = 1024, H = 512;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const ctx = c.getContext('2d', { willReadFrequently: true });
@@ -90,7 +105,7 @@ function sampleImage(img) {
   return { W, H, px: ctx.getImageData(0, 0, W, H).data };
 }
 
-/** Milky Way brightness (0–1) in a J2000 direction. */
+/** Milky Way brightness (0–1, sqrt-encoded, i.e. monotonic in luminance) in a J2000 direction. */
 export function mwAt(mwLum, raDeg, decDeg) {
   const { W, H, px } = mwLum;
   const x = Math.min(W - 1, Math.floor((((raDeg % 360) + 360) % 360) / 360 * W));
@@ -101,19 +116,32 @@ export function mwAt(mwLum, raDeg, decDeg) {
 function makeDust(mwLum) {
   const { W, H, px } = mwLum;
   const rnd = mulberry32(20260930);
-  const N = 26000, pos = new Float32Array(N * 3), mag = new Float32Array(N), color = new Float32Array(N * 3);
-  let k = 0, guard = 0;
-  while (k < N && guard++ < N * 40) {
-    const z = rnd() * 2 - 1, phi = rnd() * Math.PI * 2, r = Math.sqrt(1 - z * z);
-    const ra = ((phi / (Math.PI * 2)) * 360 + 360) % 360, dec = Math.asin(z) * 180 / Math.PI;
-    const L = px[(Math.min(H - 1, Math.floor((90 - dec) / 180 * H)) * W + Math.min(W - 1, Math.floor(ra / 360 * W))) * 4] / 255;
-    const p = 0.05 + 0.95 * Math.pow(L, 1.3);
-    if (rnd() > p) continue;
-    pos[k * 3] = r * Math.cos(phi); pos[k * 3 + 1] = r * Math.sin(phi); pos[k * 3 + 2] = z;
-    mag[k] = 7 + rnd() * 1.6 - L * 0.8;
-    const warm = rnd();
-    color.set(warm < 0.5 ? [0.82, 0.86, 1] : warm < 0.85 ? [1, 0.95, 0.88] : [1, 0.82, 0.66], k * 3);
-    k++;
+  // Sample pixels of the map in proportion to their share of the sky (cos dec) and their brightness:
+  // the dust follows the bright star clouds and avoids the dark lanes. Inverse-CDF sampling keeps
+  // this a single pass over the map instead of millions of rejection trials.
+  const cdf = new Float64Array(W * H);
+  let total = 0;
+  for (let y = 0; y < H; y++) {
+    const area = Math.cos(((y + 0.5) / H - 0.5) * Math.PI);
+    for (let x = 0; x < W; x++) {
+      const t = px[(y * W + x) * 4] / 255;
+      total += (0.004 + 0.996 * Math.pow(t * t, 0.9)) * area;
+      cdf[y * W + x] = total;
+    }
   }
-  return { count: k, pos: pos.subarray(0, k * 3), mag: mag.subarray(0, k), color: color.subarray(0, k * 3) };
+  const N = 36000, pos = new Float32Array(N * 3), mag = new Float32Array(N), color = new Float32Array(N * 3);
+  for (let k = 0; k < N; k++) {
+    const u = rnd() * total;
+    let lo = 0, hi = W * H - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (cdf[mid] < u) lo = mid + 1; else hi = mid; }
+    const x = lo % W, y = (lo - x) / W;
+    const ra = (x + rnd()) / W * 2 * Math.PI;
+    const z = Math.sin((0.5 - (y + rnd()) / H) * Math.PI), r = Math.sqrt(1 - z * z);
+    pos[k * 3] = r * Math.cos(ra); pos[k * 3 + 1] = r * Math.sin(ra); pos[k * 3 + 2] = z;
+    const t = px[lo * 4] / 255;
+    mag[k] = 8.8 + rnd() * 1.4 - t * 0.7;
+    const warm = rnd();
+    color.set(warm < 0.5 ? [0.84, 0.88, 1] : warm < 0.85 ? [1, 0.95, 0.88] : [1, 0.84, 0.7], k * 3);
+  }
+  return { count: N, pos, mag, color };
 }

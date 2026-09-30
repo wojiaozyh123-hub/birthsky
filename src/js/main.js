@@ -116,7 +116,7 @@ function moveCamera(name, dur = 2200, fn = ease.inOut) {
 function layout() {
   app.w = innerWidth; app.h = innerHeight;
   document.documentElement.style.setProperty('--vh', `${app.h / 100}px`);
-  app.dpr = Math.min(window.devicePixelRatio || 1, app.lowPower ? 1.25 : 2);
+  app.dpr = Math.min(window.devicePixelRatio || 1, app.lowPower ? 1.25 : (app.dprCap || 3));
   app.renderer?.resize(app.w, app.h, app.dpr);
   app.overlay?.resize(app.w, app.h, app.dpr);
   if (!app.rewind) moveCamera(app.camPreset, 0);
@@ -290,20 +290,34 @@ function frameState(t) {
 }
 
 function sizeForView() {
-  // stars read a little larger when the dome is small, and when zoomed in
+  // Stars are points of light: keep them pinpoint at every framing (the renderer already reaches
+  // fainter stars as the view magnifies); only a whisper of growth when zoomed right in.
   const R = app.cam.domeR * app.cam.zoom;
-  return Math.max(0.78, Math.min(1.6, Math.pow(R / 190, 0.35)));
+  return Math.max(0.92, Math.min(1.15, Math.pow(R / 800, 0.1)));
 }
 
 function perfWatch(dt) {
-  if (app.lowPower || app.mode === 'intro') return;
-  const f = app.frameTimes;
-  f.push(dt);
-  if (f.length > 90) f.shift();
-  if (f.length === 90) {
-    const avg = f.reduce((a, b) => a + b, 0) / f.length;
-    if (avg > 0.034) { app.lowPower = true; layout(); }
-  }
+  // Adaptive resolution: render at up to 3× on phones that hold ~60 fps, and step down (2.5 → 2 →
+  // 1.5 → 1.25) when the typical frame runs long. Uses the median of a window, so a one-off hitch
+  // (a poster being drawn, a tab switch) never costs sharpness.
+  const now = performance.now();
+  const pw = app.perf || (app.perf = { f: new Float32Array(72), s: new Float32Array(72), n: 0, hold: now + 2500 });
+  if (app.lowPower || document.hidden || now < pw.hold) { pw.n = 0; return; }
+  pw.f[pw.n++] = dt;
+  if (pw.n < pw.f.length) return;
+  pw.n = 0;
+  pw.s.set(pw.f);
+  const median = pw.s.sort()[pw.s.length >> 1]; // typed-array sort: numeric, in place, no garbage
+  if (median <= 1 / 44) return;
+  const next = [2.5, 2, 1.5, 1.25].find((c) => c < app.dpr - 0.01);
+  if (!next) return;
+  if (next <= 1.25) app.lowPower = true;
+  else app.dprCap = next;
+  pw.hold = now + 1500; // let the new resolution settle before judging it
+  // resize in place (not layout(), which would also snap the camera back to its preset)
+  app.dpr = Math.min(window.devicePixelRatio || 1, app.lowPower ? 1.25 : app.dprCap);
+  app.renderer?.resize(app.w, app.h, app.dpr);
+  app.overlay?.resize(app.w, app.h, app.dpr);
 }
 
 // ------------------------------------------------------------------ people & moments

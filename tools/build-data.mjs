@@ -7,9 +7,14 @@
 //   traditional Chinese asterisms (from Stellarium skycultures), Milky Way outlines (J.R. Vieira)
 //
 // Outputs
-// - stars.bin     6 bytes/star: u16 ra, i16 dec, i8 mag*10, i8 (b-v)*50 — sorted by magnitude
+// - stars.bin     naked-eye stars (V ≤ 6.5), 6 bytes/star: u16 ra, i16 dec, i8 mag*10, i8 (b-v)*50 —
+//                 sorted by magnitude. Its indices are what sky.json's named stars point at, and its
+//                 count is the "stars above your head" fact, so it stays strictly naked-eye.
+// - deep.bin      the fainter stars behind them (6.5 < V ≤ 8.0), same format, loaded after first paint;
+//                 rendered only (depth for full-screen / zoomed views), never counted or named
 // - sky.json      named stars, constellations (IAU + Chinese asterisms), label positions
-// - milkyway.png  2048×1024 equirectangular luminance map (RA 0→360 left→right, Dec +90 top)
+// - milkyway.png  2048×1024 equirectangular luminance map (RA 0→360 left→right, Dec +90 top), stored
+//                 as sqrt(luminance) so the faint outer band keeps its 8-bit precision
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,7 +29,8 @@ const d3 = path.join(root, 'node_modules/d3-celestial/data');
 const readJSON = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 fs.mkdirSync(out, { recursive: true });
 
-const MAG_LIMIT = 6.5;
+const MAG_LIMIT = 6.5;       // naked eye: stars.bin, names, counts
+const DEEP_LIMIT = 8.0;      // rendered depth: deep.bin
 
 // d3-celestial's Chinese names are Traditional; convert to Simplified with macOS ICU (Hant-Hans).
 function toSimplified(strings) {
@@ -73,7 +79,7 @@ for (let i = 1; i < csv.length; i++) {
   const id = +c[col.id];
   if (id === 0) continue; // the Sun
   const mag = +c[col.mag];
-  if (!(mag <= MAG_LIMIT)) continue;
+  if (!(mag <= DEEP_LIMIT)) continue;
   const dist = +c[col.dist];
   stars.push({
     hip: c[col.hip] ? +c[col.hip] : 0,
@@ -84,16 +90,23 @@ for (let i = 1; i < csv.length; i++) {
   });
 }
 stars.sort((a, b) => a.mag - b.mag);
+// Stable sort, so the naked-eye stars keep exactly the order (and named-star indices) they had before
+// the deeper stars were added.
+const nakedCount = stars.findIndex((s) => s.mag > MAG_LIMIT);
 
-const buf = Buffer.alloc(stars.length * 6);
-stars.forEach((s, i) => {
-  const o = i * 6;
-  buf.writeUInt16LE(Math.round(((s.ra % 360 + 360) % 360) / 360 * 65535), o);
-  buf.writeInt16LE(Math.round(s.dec / 90 * 32767), o + 2);
-  buf.writeInt8(Math.max(-128, Math.min(127, Math.round(s.mag * 10))), o + 4);
-  buf.writeInt8(Math.max(-128, Math.min(127, Math.round(s.bv * 50))), o + 5);
-});
-fs.writeFileSync(path.join(out, 'stars.bin'), buf);
+function packStars(list) {
+  const buf = Buffer.alloc(list.length * 6);
+  list.forEach((s, i) => {
+    const o = i * 6;
+    buf.writeUInt16LE(Math.round(((s.ra % 360 + 360) % 360) / 360 * 65535), o);
+    buf.writeInt16LE(Math.round(s.dec / 90 * 32767), o + 2);
+    buf.writeInt8(Math.max(-128, Math.min(127, Math.round(s.mag * 10))), o + 4);
+    buf.writeInt8(Math.max(-128, Math.min(127, Math.round(s.bv * 50))), o + 5);
+  });
+  return buf;
+}
+fs.writeFileSync(path.join(out, 'stars.bin'), packStars(stars.slice(0, nakedCount)));
+fs.writeFileSync(path.join(out, 'deep.bin'), packStars(stars.slice(nakedCount)));
 
 // ---------------------------------------------------------------- names
 const starnames = readJSON(path.join(d3, 'starnames.json'));
@@ -114,7 +127,7 @@ const POPULAR = {
 };
 
 const named = [];
-stars.forEach((s, i) => {
+stars.slice(0, nakedCount).forEach((s, i) => {
   const sn = s.hip ? starnames[s.hip] : null;
   const formal = sn?.zh || '';
   const trad = s.hip ? starnamesCn[s.hip]?.name || '' : '';
@@ -161,7 +174,7 @@ const cnLines = lines('constellations.lines.cn.json');
   for (const c of cnConsts) c[1] = fix(c[1]);
 }
 fs.writeFileSync(path.join(out, 'sky.json'), JSON.stringify({
-  v: 1, magLimit: MAG_LIMIT, count: stars.length,
+  v: 1, magLimit: MAG_LIMIT, count: nakedCount, deepLimit: DEEP_LIMIT, deepCount: stars.length - nakedCount,
   named, iau, iauLines, cn: cnConsts, cnLines,
 }));
 
@@ -245,17 +258,108 @@ function blur(src, sigmaDeg) {
   }
   return dst;
 }
-const soft = blur(acc, 1.1);
-const glow = blur(acc, 4.5);
+// Structure. The outlines give the large-scale shape — the band, the Great Rift, the bright clouds in
+// Cygnus, Scutum and Sagittarius. A light blur keeps their edges instead of melting them into fog, and
+// a procedural layer in galactic coordinates (stretched along the plane, like the real thing) adds
+// the mottled star clouds and the thin dark dust lanes that the outlines are too coarse to carry.
+const fine = blur(acc, 0.35), mid = blur(acc, 1.2), wide = blur(acc, 4.0);
+const GAL = [[-0.0548755604, -0.8734370902, -0.4838350155], [0.4941094279, -0.4448296300, 0.7469822445], [-0.8676661490, -0.1980763734, 0.4559837762]];
+function hash2(i, j, seed) {
+  let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(seed, 1442695041)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+// gradient (Perlin) noise, periodic in x, remapped to 0…1 — rounder and less blocky than value noise
+function vnoise(x, y, period, seed) {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  const fx = x - ix, fy = y - iy;
+  const ux = fx * fx * fx * (fx * (fx * 6 - 15) + 10), uy = fy * fy * fy * (fy * (fy * 6 - 15) + 10);
+  const i0 = ((ix % period) + period) % period, i1 = (i0 + 1) % period;
+  const grad = (i, j, dx, dy) => { const a = hash2(i, j, seed) * 6.283185307; return Math.cos(a) * dx + Math.sin(a) * dy; };
+  const a = grad(i0, iy, fx, fy), b = grad(i1, iy, fx - 1, fy), c = grad(i0, iy + 1, fx, fy - 1), d = grad(i1, iy + 1, fx - 1, fy - 1);
+  const v = a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+  return 0.5 + v * 0.9;
+}
+// fBm periodic in galactic longitude; cell sizes in degrees (along the plane, across it)
+function fbm(l, b, cellL, cellB, octaves, seed, gain = 0.55) {
+  let sum = 0, amp = 1, norm = 0;
+  for (let o = 0; o < octaves; o++) {
+    const period = Math.max(1, Math.round(360 / cellL));
+    sum += amp * vnoise((l / 360) * period, b / cellB, period, seed + o * 17);
+    norm += amp; amp *= gain; cellL /= 2; cellB /= 2;
+  }
+  return sum / norm;
+}
+const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 let max = 0;
 const lum = new Float32Array(W * H);
-for (let i = 0; i < lum.length; i++) { lum[i] = soft[i] * 0.8 + glow[i] * 0.45; max = Math.max(max, lum[i]); }
-
-// PNG (8-bit greyscale). Gamma lifts the faint outer band a little.
-const raw = Buffer.alloc((W + 1) * H);
 for (let y = 0; y < H; y++) {
-  raw[y * (W + 1)] = 0;
-  for (let x = 0; x < W; x++) raw[y * (W + 1) + 1 + x] = Math.round(255 * Math.pow(lum[y * W + x] / max, 0.85));
+  const dec = (90 - (y + 0.5) / H * 180) * Math.PI / 180, cd = Math.cos(dec), sd = Math.sin(dec);
+  for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    // sharp detail only inside the band; its outer edge comes from the softer layers, so it feathers
+    // out the way the real one does instead of ending in cottony lobes
+    const fw = sstep(0.12, 0.42, mid[i]);
+    const base = fine[i] * 0.45 * fw + mid[i] * (0.35 + 0.4 * (1 - fw)) + wide[i] * 0.3;
+    if (base < 0.004) { lum[i] = base; continue; }
+    const ra = (x + 0.5) / W * 2 * Math.PI;
+    const e = [cd * Math.cos(ra), cd * Math.sin(ra), sd];
+    const g = GAL.map((r) => r[0] * e[0] + r[1] * e[1] + r[2] * e[2]);
+    const l = Math.atan2(g[1], g[0]) * 180 / Math.PI;          // −180…180, 0 = galactic centre
+    const b = Math.asin(Math.max(-1, Math.min(1, g[2]))) * 180 / Math.PI;
+    const inner = Math.exp(-((l / 75) ** 2));                  // the inner Galaxy is lumpier and dustier
+    // domain warp so nothing lines up with the noise lattice
+    const wl = l + 360 + 4 * (fbm(l + 360, b, 20, 14, 2, 91) - 0.5);
+    const wb = b + 2.5 * (fbm(l + 360, b, 20, 14, 2, 57) - 0.5);
+    // Star clouds: only a gentle large-scale swell (big soft blobs read as cumulus, not as stars),
+    // with the texture carried by small knots: granular, not billowy.
+    const m = fbm(wl, wb, 9, 6, 4, 1);
+    let cloud = 0.8 + 0.4 * Math.max(0, Math.min(1, (m - 0.5) * 1.8 + 0.5));
+    const knots = fbm(wl + 3.3, wb, 2.2, 1.6, 3, 7);
+    cloud += (0.18 + 0.3 * inner) * sstep(0.5, 0.78, knots);
+    cloud = 1 + (cloud - 1) * sstep(0.03, 0.3, base); // faint edges fade smoothly, no cotton lobes
+    // Dust. Ragged absorbing patches near the plane (the outlines carry the big dark clouds), plus
+    // thin filaments stretched along the plane, as in the Great Rift and the lanes around the bulge.
+    const dust = fbm(wl + 11, wb, 8, 4, 5, 23, 0.55);
+    const near = Math.exp(-((b / 9) ** 2)) * sstep(0.03, 0.25, base);
+    let tau = 0.95 * sstep(0.56, 0.76, dust) * (0.35 + 0.65 * inner);
+    const fil = 1 - Math.abs(2 * fbm(wl + 29, wb, 16, 4, 2, 41, 0.45) - 1);
+    tau += 0.45 * sstep(0.74, 0.94, fil) * (0.3 + 0.7 * inner) * sstep(0.45, 0.6, dust);
+    tau *= near;
+    lum[i] = base * cloud * Math.exp(-tau);
+    if (lum[i] > max) max = lum[i];
+  }
+}
+
+// PNG (8-bit greyscale) storing sqrt(luminance): the shader squares it back, which keeps the faint
+// outer band free of banding. Rows are filtered (PNG adaptive filtering) so the detail stays small.
+const raw = Buffer.alloc((W + 1) * H);
+{
+  const row = new Uint8Array(W), prev = new Uint8Array(W), cand = [0, 1, 2, 3, 4].map(() => new Uint8Array(W));
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) row[x] = Math.round(255 * Math.sqrt(Math.max(0, lum[y * W + x]) / max));
+    let best = 0, bestCost = Infinity;
+    for (let f = 0; f < 5; f++) {
+      const c = cand[f];
+      let cost = 0;
+      for (let x = 0; x < W; x++) {
+        const a = x ? row[x - 1] : 0, b = y ? prev[x] : 0, cc = x && y ? prev[x - 1] : 0;
+        let pred = 0;
+        if (f === 1) pred = a;
+        else if (f === 2) pred = b;
+        else if (f === 3) pred = (a + b) >> 1;
+        else if (f === 4) { const p = a + b - cc, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - cc); pred = pa <= pb && pa <= pc ? a : pb <= pc ? b : cc; }
+        const v = (row[x] - pred) & 255;
+        c[x] = v;
+        cost += v < 128 ? v : 256 - v;
+      }
+      if (cost < bestCost) { bestCost = cost; best = f; }
+    }
+    raw[y * (W + 1)] = best;
+    raw.set(cand[best], y * (W + 1) + 1);
+    prev.set(row);
+  }
 }
 const crcTable = new Uint32Array(256).map((_, n) => {
   let c = n;
@@ -278,7 +382,7 @@ const png = Buffer.concat([
 fs.writeFileSync(path.join(out, 'milkyway.png'), png);
 
 const size = (f) => `${(fs.statSync(path.join(out, f)).size / 1024).toFixed(0)} KB`;
-console.log(`stars: ${stars.length} (≤${MAG_LIMIT}) → stars.bin ${size('stars.bin')}`);
+console.log(`stars: ${nakedCount} (≤${MAG_LIMIT}) → stars.bin ${size('stars.bin')}; ${stars.length - nakedCount} (≤${DEEP_LIMIT}) → deep.bin ${size('deep.bin')}`);
 console.log(`named: ${named.length}, IAU: ${iau.length}, 星官: ${cnConsts.length} → sky.json ${size('sky.json')}`);
 console.log(`milkyway.png ${size('milkyway.png')}`);
 console.log('sample:', named.slice(0, 12).map((n) => `${n[1]}(${n[3]}${n[2] ? '/' + n[2] : ''}, ${n[5]}ly)`).join(' '));

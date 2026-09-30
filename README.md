@@ -55,7 +55,7 @@ npm run data
 src/
   index.html, styles/main.css
   js/main.js        应用流程：开场 → 填写 → 时光倒流 → 星空 → 海报 / 合盘 / 分享
-  js/renderer.js    WebGL：大气、银河（纹理 + 噪声 + 银心暖色）、星点、星尘、星轨累积缓冲
+  js/renderer.js    WebGL：夜空与气辉、山脊与树影、银河（纹理 + 噪声 + 放大后可分辨的星粒）、星点（摄影式点扩散，保留星色）、暗星与星尘、星轨（连续拖尾 + 半浮点累积）
   js/overlay.js     2D 矢量层：星座线（逐条描绘）、中文名、地平环、月相、行星、扫描光束
   js/camera.js      立体投影相机：「星图」与「仰望」是同一个相机的两个姿态
   js/astro.js       astronomy-engine 封装：旋转矩阵、日月行星、农历、节气、时区
@@ -66,7 +66,7 @@ src/
   js/share.js       分享链接编解码（紧凑、带版本号）与微信分享引导
   js/cities.js      城市搜索（中文 / 拼音 / 英文）
   js/config.js      广告与统计开关（默认全关）
-  data/             stars.bin · sky.json · milkyway.png · cities.json
+  data/             stars.bin（肉眼星 ≤6.5 等）· deep.bin（6.5–8 等，首屏后加载）· sky.json · milkyway.png · cities.json
 tools/              数据构建、打包、本地预览服务、无头验收
 docs/MONETIZATION.md 变现与广告方案
 ```
