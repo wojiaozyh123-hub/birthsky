@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<title>你来的那晚 · 看看你出生那晚的星空</title>
+<meta name="description" content="输入生日和出生城市，回到你出生那一刻真实的星空：银河、月相、行星与星座。还能生成海报，和朋友星空合盘。">
+<meta name="theme-color" content="#04060d">
+<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta property="og:type" content="website">
+<meta property="og:title" content="你来的那晚 · 看看你出生那晚的星空">
+<meta property="og:description" content="每个人出生的那一夜，头顶都有一片独一无二的星空。">
+<meta property="og:image" content="assets/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preload" href="assets/fonts/cormorant-garamond-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles/main.css">
+<!--dev:start-->
+<script type="importmap">{"imports":{"astronomy-engine":"/node_modules/astronomy-engine/esm/astronomy.js","qrcode-generator":"/node_modules/qrcode-generator/dist/qrcode.mjs"}}</script>
+<!--dev:end-->
+</head>
+<body>
+<img class="wx-thumb" src="assets/share-thumb.jpg" alt="" aria-hidden="true">
+<canvas id="sky" aria-hidden="true"></canvas>
+<canvas id="overlay" aria-label="星空，可拖动旋转、双指缩放、点击星星查看"></canvas>
+
+<main id="app">
+  <!-- 开场 -->
+  <section class="screen intro is-active" id="intro">
+    <div class="intro-body">
+      <p class="eyebrow latin" id="intro-eyebrow">The Night You Arrived</p>
+      <h1 class="title" id="intro-title">你来的那晚</h1>
+      <p class="lede" id="intro-lede">每个人出生的那一夜，<br>头顶都有一片独一无二的星空。</p>
+    </div>
+    <div class="intro-actions">
+      <button class="btn-primary" id="btn-start" disabled>
+        <span class="btn-label">正在点亮星空</span>
+        <span class="btn-progress"><i></i></span>
+      </button>
+      <p class="hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>建议戴上耳机，打开声音</p>
+    </div>
+    <p class="intro-foot latin-num" id="intro-foot">真实星表 · 8,920 颗肉眼可见的恒星 · 银河与行星</p>
+  </section>
+
+  <!-- 填写 -->
+  <section class="sheet form-sheet" id="form" aria-hidden="true">
+    <div class="sheet-grip"></div>
+    <p class="eyebrow" id="form-eyebrow">回到那一夜</p>
+    <h2 id="form-title">你是哪一天来到这个世界的？</h2>
+    <label class="field">
+      <span>名字</span>
+      <input id="f-name" maxlength="12" placeholder="可不填 · 会写在海报上" autocomplete="off" enterkeyhint="next">
+    </label>
+    <div class="row">
+      <label class="field">
+        <span>出生日期</span>
+        <input id="f-date" type="date" min="1900-01-01" required>
+      </label>
+      <label class="field" id="f-time-wrap">
+        <span>出生时间</span>
+        <input id="f-time" type="time" value="22:00">
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" id="f-unknown"><i></i><span>不记得具体时间，按当晚 22:00</span></label>
+    <label class="field city">
+      <span>出生城市</span>
+      <input id="f-city" placeholder="如 杭州、成都、Toronto" autocomplete="off" enterkeyhint="done">
+      <ul class="suggest" id="f-suggest" role="listbox"></ul>
+    </label>
+    <p class="form-err" id="f-err" role="alert"></p>
+    <button class="btn-primary wide" id="btn-go"><span class="btn-label">回到那一夜</span></button>
+    <p class="fine">只在你的手机上计算和保存，我们没有服务器。</p>
+  </section>
+
+  <!-- 时光倒流 -->
+  <section class="rewind" id="rewind" aria-live="polite">
+    <p class="rw-label">时 光 倒 流</p>
+    <p class="rw-date latin-num" id="rw-date"></p>
+    <p class="rw-sub" id="rw-sub"></p>
+  </section>
+
+  <!-- 抵达字幕 -->
+  <section class="arrival" id="arrival">
+    <p class="arr-meta latin-num" id="arr-meta"></p>
+    <p class="arr-line" id="arr-line">这是你来的那晚</p>
+  </section>
+
+  <!-- 星空界面 -->
+  <section class="hud" id="hud">
+    <header class="hud-top">
+      <div class="who">
+        <p class="eyebrow" id="h-eyebrow">你来的那晚</p>
+        <h2 id="h-title"></h2>
+        <p class="meta latin-num" id="h-meta"></p>
+      </div>
+      <div class="tools">
+        <button class="icon-btn" id="btn-sound" aria-label="音乐开关"></button>
+        <button class="icon-btn" id="btn-culture" aria-label="切换星座体系"><span>星官</span></button>
+        <button class="icon-btn" id="btn-view" aria-label="仰望视角"></button>
+      </div>
+    </header>
+
+    <div class="dome-slot" id="dome-slot"></div>
+
+    <div class="guest-bar" id="guest-bar">
+      <p id="guest-text"></p>
+      <div class="guest-actions">
+        <button class="btn-primary small" id="btn-guest-mine">看看我的星空</button>
+        <button class="btn-ghost small" id="btn-guest-hepan">和 TA 合盘</button>
+      </div>
+    </div>
+
+    <div class="time-strip" id="time-strip">
+      <button class="icon-btn tiny" id="btn-night" aria-label="播放这一夜"></button>
+      <div class="scrub">
+        <input type="range" id="scrub" min="0" max="1000" value="500" aria-label="那一夜的时间">
+        <i class="birth-mark" id="birth-mark"></i>
+      </div>
+      <span class="scrub-time latin-num" id="scrub-time">22:00</span>
+    </div>
+
+    <nav class="dock" id="dock">
+      <button id="btn-listen"><i class="ico"></i><span>聆听星空</span></button>
+      <button id="btn-poster"><i class="ico"></i><span>生成海报</span></button>
+      <button id="btn-hepan"><i class="ico"></i><span>星空合盘</span></button>
+      <button id="btn-share"><i class="ico"></i><span>分享</span></button>
+    </nav>
+
+    <aside class="facts" id="facts">
+      <button class="facts-handle" id="facts-handle" aria-expanded="false">
+        <span class="grip"></span>
+        <span class="facts-peek" id="facts-peek"></span>
+      </button>
+      <div class="facts-body" id="facts-body"></div>
+    </aside>
+
+    <div class="star-card" id="star-card" role="dialog" aria-live="polite"></div>
+  </section>
+
+  <!-- 海报 -->
+  <section class="modal poster-modal" id="poster" aria-hidden="true">
+    <div class="modal-inner">
+      <header class="modal-head">
+        <h3>星空海报</h3>
+        <button class="icon-btn close" data-close aria-label="关闭"></button>
+      </header>
+      <div class="poster-stage" id="poster-stage">
+        <img id="poster-img" alt="星空海报">
+        <div class="poster-loading" id="poster-loading"><i></i>正在冲印星空…</div>
+      </div>
+      <p class="poster-tip" id="poster-tip">长按图片保存，发到朋友圈</p>
+      <div class="chips" id="poster-styles" role="radiogroup"></div>
+      <label class="field compact"><span>标题</span><input id="p-title" maxlength="18"></label>
+      <label class="field compact"><span>寄语</span><input id="p-line" maxlength="28"></label>
+      <div class="modal-actions">
+        <button class="btn-primary" id="btn-save"><span class="btn-label">保存高清海报</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 合盘邀请 -->
+  <section class="modal hepan-modal" id="hepan-invite" aria-hidden="true">
+    <div class="modal-inner">
+      <header class="modal-head">
+        <h3>星空合盘</h3>
+        <button class="icon-btn close" data-close aria-label="关闭"></button>
+      </header>
+      <div class="hepan-illus" aria-hidden="true"><i></i><i></i></div>
+      <p class="modal-lede">把你们出生那晚的两片星空叠在一起，<br>看看有多少颗星，同时照着你们两个人。</p>
+      <div class="modal-actions stack">
+        <button class="btn-primary" id="btn-invite"><span class="btn-label">邀请 TA 来合盘</span></button>
+        <button class="btn-ghost" id="btn-manual">我知道 TA 的生日，直接填写</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 合盘结果 -->
+  <section class="screen hepan-result" id="hepan">
+    <header class="hp-top">
+      <button class="icon-btn back" id="btn-hp-back" aria-label="返回"></button>
+      <p class="eyebrow">星 空 合 盘</p>
+      <span></span>
+    </header>
+    <div class="hp-stage" id="hp-stage">
+      <canvas id="hp-canvas"></canvas>
+    </div>
+    <div class="hp-body" id="hp-body"></div>
+  </section>
+
+  <!-- 关于 -->
+  <section class="modal about-modal" id="about" aria-hidden="true">
+    <div class="modal-inner">
+      <header class="modal-head">
+        <h3>关于「你来的那晚」</h3>
+        <button class="icon-btn close" data-close aria-label="关闭"></button>
+      </header>
+      <div class="about-body" id="about-body"></div>
+    </div>
+  </section>
+
+  <div class="share-guide" id="share-guide" aria-hidden="true">
+    <svg class="arrow" viewBox="0 0 120 120" aria-hidden="true"><path d="M20 110 C 40 60, 70 40, 104 16"/><path d="M84 14 L106 14 L100 36"/></svg>
+    <p id="share-guide-text">点击右上角 <b>···</b><br>发送给朋友，或分享到朋友圈</p>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="fallback" id="fallback" hidden>
+    <p>你的浏览器暂不支持 WebGL，星空无法点亮。<br>试试用手机自带浏览器或更新微信后再打开。</p>
+  </div>
+</main>
+<button class="about-link" id="btn-about" aria-label="关于">i</button>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

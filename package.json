@@ -1,0 +1,25 @@
+{
+  "name": "birthsky",
+  "version": "1.0.0",
+  "description": "你来的那晚 — 看看你出生那晚的星空",
+  "scripts": {
+    "dev": "node tools/dev-server.mjs",
+    "build": "node tools/build.mjs",
+    "data": "node tools/build-data.mjs && node tools/build-cities.mjs",
+    "qa": "node tools/qa.mjs",
+    "test:cities": "node tools/test-cities.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@fontsource/cormorant-garamond": "^5.3.0",
+    "astronomy-engine": "^2.1.19",
+    "d3-celestial": "^0.7.35",
+    "esbuild": "^0.25.12",
+    "puppeteer-core": "^23.11.1",
+    "qrcode-generator": "^2.0.4"
+  },
+  "type": "module",
+  "private": true
+}
