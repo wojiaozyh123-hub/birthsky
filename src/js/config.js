@@ -1,6 +1,6 @@
 // business/config-for-web.json, baked in by tools/build.mjs (absent on the dev server)
 // eslint-disable-next-line no-undef
-const SITE = typeof __SITE_CONFIG__ !== 'undefined' ? __SITE_CONFIG__ : { sponsor: null, tip: null };
+const SITE = typeof __SITE_CONFIG__ !== 'undefined' ? __SITE_CONFIG__ : { sponsor: null, tip: null, analytics: null };
 
 // Site configuration. Everything commercial is off by default — see docs/MONETIZATION.md and spec §10.
 export const CONFIG = {
@@ -23,7 +23,8 @@ export const CONFIG = {
 
   // Page-view analytics (spec §10.2). provider: 'none' | 'baidu' | 'umami'. Off until a site ID is provided;
   // when on, copy.js appends T.about.analytics to the privacy paragraph.
-  analytics: {
+  // business/config-for-web.json → analytics (tools/build.mjs turns it on only with a valid 32-hex 百度 id)
+  analytics: SITE.analytics || {
     provider: 'none',
     baidu: { id: '' },                 // hm.baidu.com site id — works in mainland China
     umami: { src: '', websiteId: '' }, // self-hosted Umami

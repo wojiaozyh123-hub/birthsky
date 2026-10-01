@@ -1303,7 +1303,10 @@ export class Chrome {
   _colophon() {
     const A = T.about;
     const privacy = A.sections.map(([label, body]) => {
-      const extra = label === '隐私' && CONFIG.analytics?.provider && CONFIG.analytics.provider !== 'none' ? C.analytics : '';
+      const an = CONFIG.analytics || {};
+      const line = an.provider === 'busuanzi' ? T.about.analyticsBusuanzi
+        : (an.provider === 'baidu' && !!an.baidu?.id) || (an.provider === 'umami' && !!an.umami?.src && !!an.umami?.websiteId) ? C.analytics : '';
+      const extra = label === '隐私' ? line : '';
       return `<div class="co-sec"><p class="co-label">${esc(label)}</p><p class="co-body">${noWidow(body + extra)}</p></div>`;
     }).join('');
     const data = `<div class="co-sec"><p class="co-label">${esc(A.dataLabel)}</p><div class="co-data">${A.data.map(([n, l]) => `<p class="dn">${esc(n)}</p><p class="dl">${esc(l)}</p>`).join('')}</div></div>`;

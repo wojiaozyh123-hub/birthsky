@@ -16,5 +16,11 @@
     "image": "business/assets/tip-qr.png",
     "line": "喜欢这片星空，可以请我们喝杯咖啡",
     "hint": "长按识别，随意就好"
+  },
+  "analytics": {
+    "provider": "busuanzi",
+    "baidu": {
+      "id": ""
+    }
   }
 }

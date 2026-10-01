@@ -173,8 +173,7 @@ export class Keep {
     });
     for (const b of $$('.kf-styles .kf-opt', el.keep)) b.addEventListener('click', () => this.setStyle(b.dataset.style));
     el.poem.addEventListener('click', () => {
-      if (this.gift || this.format === 'wallpaper') this.o.poemStep++;
-      else this.o.lineStep++;
+      this.o.poemStep++;
       this.o.sentence = ''; el.sentence.value = '';
       this.refresh();
     });
@@ -237,7 +236,7 @@ export class Keep {
     this.prev = { mode: app.mode === 'gift' ? 'sky' : app.mode, view: app.cam.snapshot(), chrome: app.chrome.chromeOn, limits: { ...app.rig.limits } };
     const pair = app.pairView?.result || null;
     this.o = {
-      style: 'night', textMode: this.format === 'card' ? 'full' : 'poem+date', lines: false, qr: true, sentence: '',
+      style: 'night', textMode: this.format === 'card' ? 'full' : 'poem+date', lines: false, qr: !!gift, sentence: '',
       poemStep: app.poemStep || 0, lineStep: 0, greeting: true, from: gift?.from || app.me?.name || '', pair,
     };
     this.el.sentence.value = '';
@@ -385,11 +384,11 @@ export class Keep {
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-checked', String(on));
     }
-    el.poem.textContent = gift ? T.gift.poemNext : card ? T.keep.lineNext : T.night.poemNext;
+    el.poem.textContent = gift ? T.gift.poemNext : T.night.poemNext;
     el.mode.textContent = gift ? (o.greeting ? T.gift.greetingOn : T.gift.greetingOff) : MODE_LABEL[o.textMode];
     el.lines.hidden = gift;
     el.lines.textContent = o.lines ? T.keep.lines.on : T.keep.lines.off;
-    el.qrT.hidden = !card || gift;
+    el.qrT.hidden = true; // 便签 carry no QR (owner, 2026-10-01); the 贺卡 always does
     el.qrT.textContent = o.qr ? T.keep.qr.on : T.keep.qr.off;
     el.fromWrap.hidden = !gift;
     const wl = el.write.querySelector('.kf-wl');
@@ -412,11 +411,11 @@ export class Keep {
       const pr = poemForPerson(pair ? pair.a : person, o.poemStep, { pair: !!pair, partner: pair ? pair.b : null });
       return { person, poem: pr.poem, regional: pr.regional, place: pr.place, sentence: (o.sentence || '').trim() || undefined };
     }
-    // card: L3 cycles [光年之星 sentence, poem 1, poem 2, …]; 写一句 overrides
+    // 便签: the person's poem (the same one as 那一夜 and the wallpaper; 换一首 walks on); 写一句 overrides
     const own = (o.sentence || '').trim();
     if (own) return { person, sentence: own };
-    if (o.lineStep === 0 || pair) return { person, sentence: undefined };
-    const pr = poemForPerson(person, o.lineStep - 1);
+    if (pair) return { person, sentence: undefined };
+    const pr = poemForPerson(person, o.poemStep);
     return { person, sentence: pr.poem, poem: pr.poem, regional: pr.regional, place: pr.place };
   }
 

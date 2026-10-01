@@ -42,6 +42,11 @@ function siteConfig() {
   return {
     sponsor: sp.enabled ? { tag: str(sp.tag) || '赞助', title: str(sp.title), text: str(sp.text), url: str(sp.url) } : null,
     tip: tip.enabled && fs.existsSync(TIP_SRC) ? { image: 'assets/tip-qr.png', line: str(tip.line), hint: str(tip.hint) } : null,
+    // 百度统计: on only with a real 32-hex site id; otherwise off (and the privacy line stays out)
+    // 不蒜子: no account, counts page views by Referer (so never set no-referrer on the page)
+    analytics: (j.analytics?.provider === 'baidu' && /^[0-9a-f]{32}$/i.test(str(j.analytics?.baidu?.id)))
+      ? { provider: 'baidu', baidu: { id: str(j.analytics.baidu.id) }, umami: { src: '', websiteId: '' } }
+      : j.analytics?.provider === 'busuanzi' ? { provider: 'busuanzi', baidu: { id: '' }, umami: { src: '', websiteId: '' } } : null,
   };
 }
 const CHECK_ONLY = process.argv.includes('--check');

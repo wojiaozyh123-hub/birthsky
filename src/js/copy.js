@@ -765,6 +765,7 @@ export const T = {
     ],
     // appended to 隐私 only while CONFIG.analytics is on (chrome.js)
     analytics: '我们用百度统计了解大致的访问量和使用情况，不包含你的生日、名字和城市。',
+    analyticsBusuanzi: '我们用「不蒜子」计数器统计访问次数，它只记次数，不包含你的生日、名字和城市。',
     dataLabel: '数据',
     data: [
       ['恒星', 'HYG Database v4.1 · CC BY-SA 4.0'],

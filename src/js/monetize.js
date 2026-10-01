@@ -10,8 +10,8 @@
 //   activateSlots(root)         after inserting slotHtml() into root: binds track('ad_click', place) on the
 //                               links and fills AdSense <ins> (loading its script once).
 //   sponsor() → { tag, title, text, image, url } | null     the configured sponsor, for custom layouts
-//   initAnalytics()             loads 百度统计 / Umami when configured (once)
-//   track(event, label = '')    funnel event, never with personal data; see EVENTS
+//   initAnalytics()             loads 百度统计 / Umami / 不蒜子 when configured (once)
+//   track(event, label = '')    funnel event, never with personal data; see EVENTS (不蒜子 has no events: no-op)
 //   EVENTS                      the event names the app sends
 //
 // The row styles ship with this module (a small <style> prepended to <head>, so main.css can override them
@@ -119,7 +119,15 @@ let analyticsOn = false;
 export function initAnalytics() {
   const a = CONFIG.analytics;
   if (analyticsOn) return;
-  if (a.provider === 'baidu' && a.baidu.id) {
+  if (a.provider === 'busuanzi') {
+    // one page view per load; no counter shown, no events; a failure is silent
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js';
+    s.onerror = () => s.remove();
+    document.head.appendChild(s);
+    analyticsOn = true;
+  } else if (a.provider === 'baidu' && a.baidu.id) {
     window._hmt = window._hmt || [];
     const s = document.createElement('script');
     s.src = `https://hm.baidu.com/hm.js?${encodeURIComponent(a.baidu.id)}`;
