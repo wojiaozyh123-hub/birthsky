@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>overlay · scenes</title>
+<script type="importmap">{"imports":{"astronomy-engine":"/node_modules/astronomy-engine/esm/astronomy.js","qrcode-generator":"/node_modules/qrcode-generator/dist/qrcode.mjs"}}</script>
+<style>html, body { margin: 0; background: #030407; }</style>
+</head>
+<body>
+<!-- Dev page (not shipped). Runs the real SkyRenderer + Overlay on fixed nights with the new camera and
+     returns composited PNGs (sky, overlay, a mock of the stage text) for review; plus assertions and a
+     perf / allocation probe. Driven by tools/dev/overlay-shots.mjs and tools/dev/test-overlay.mjs. -->
+<script type="module">
+import { Camera, standView, altForHorizonAt } from '../js/camera.js';
+import { SkyRenderer } from '../js/renderer.js';
+import { Overlay, limbAngle, discRadiusPx } from '../js/overlay.js';
+import { loadCatalog } from '../js/catalog.js';
+import { skyState, skyMatrix, radec, mul, altAz, zonedToUtc, DEG } from '../js/astro.js';
+import { computeFacts, chooseHero, tagsFor, buildTour } from '../js/facts.js';
+
+const catalog = await loadCatalog('/data/', '');
+await catalog.deepReady;
+const BG = [3 / 255, 4 / 255, 7 / 255];
+const TERRAIN = 0.05;
+const glCanvas = document.createElement('canvas');
+const renderer = new SkyRenderer(glCanvas, catalog, { preserve: true });
+const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+const CITIES = {
+  hz: { name: '杭州', lat: 30.29, lon: 120.16, tz: 'Asia/Shanghai' },
+  cd: { name: '成都', lat: 30.66, lon: 104.07, tz: 'Asia/Shanghai' },
+  syd: { name: '悉尼', lat: -33.87, lon: 151.21, tz: 'Australia/Sydney' },
+};
+const NIGHTS = {
+  hz: { date: '1998-07-14', time: '22:00', city: 'hz' },
+  cd: { date: '2000-01-02', time: '06:10', city: 'cd' },
+  syd: { date: '2010-06-01', time: '22:30', city: 'syd' },
+};
+const NOW = new Date('2026-09-30T12:00:00Z');
+
+function night(key, override) {
+  const N = { ...NIGHTS[key], ...(override || {}) };
+  const city = CITIES[N.city];
+  const person = { name: '', date: N.date, time: N.time, unknownTime: false, city };
+  const [y, m, d] = N.date.split('-').map(Number), [hh, mm] = N.time.split(':').map(Number);
+  const moment = N.moment ? new Date(N.moment) : zonedToUtc(y, m, d, hh, mm, city.tz);
+  const sky = skyState(moment, city.lat, city.lon);
+  const facts = computeFacts(catalog, person, moment, sky, NOW);
+  const hero = chooseHero(catalog, sky, facts);
+  return { person, moment, sky, facts, hero, city };
+}
+
+function glState(cam, sky, extra = {}) {
+  const sunAlt = sky.sun.alt;
+  return {
+    cam, M: sky.M, time: 12.3, sun: sky.sun.n, moon: sky.moon.n,
+    moonIllum: sky.moonPhase.illum * (sky.moon.alt > -2 ? 1 : 0),
+    twilight: smooth(-18, -2, sunAlt) * 0.92, day: smooth(-3, 10, sunAlt) * 0.6,
+    reveal: 6.6, mwAmt: 1, starGain: 1, dustGain: 1,
+    sizeGain: Math.max(0.92, Math.min(1.15, Math.pow(72 / cam.fov, 0.1))),
+    crisp: 1, sel: -1, twinkle: 0, terrainH: TERRAIN, bg: BG, exposure: 1, dither: 0.004, vignette: 0.12,
+    listenAz: 0, listenOn: 0, zB: [0, 0, 0], sharedDim: 1, sharedT: 0, trail: null, ...extra,
+  };
+}
+
+// stage slots of spec §2.3 (390×844: st 47, sb 34; 360×640: st 0, sb 0; desktop ≥ 960)
+function slots(w, h) {
+  const desk = w >= 960, small = h < 700;
+  const st = desk || small ? 0 : 47, sb = desk || small ? 0 : 34;
+  const capB = desk ? 140 : small ? 108 : sb + 112, capW = desk ? 420 : small ? 286 : 300;
+  const sumB = desk ? 106 : small ? 82 : sb + 82, metaB = desk ? 84 : small ? 60 : sb + 60;
+  const actB = desk ? 32 : sb + 8, actW = desk ? 520 : Math.min(w - 40, 330);
+  return {
+    caption: { x: (w - capW) / 2, y: h - capB - 52, w: capW, h: 52 },
+    summary: { x: (w - 250) / 2, y: h - sumB - 18, w: 250, h: 18 },
+    meta: { x: (w - 240) / 2, y: h - metaB - 18, w: 240, h: 18 },
+    actions: { x: (w - actW) / 2, y: h - actB - 44, w: actW, h: 44 },
+    toggles: { x: w - (desk ? 28 : 12) - 150, y: (desk ? 20 : st + 4), w: 150, h: 44 },
+  };
+}
+function uiRects(w, h, mode) {
+  const S = slots(w, h);
+  if (mode === 'chrome') return [S.caption, S.summary, S.meta, S.actions, S.toggles];
+  if (mode === 'caption') return [S.caption, S.meta];
+  if (mode === 'rest') return [S.meta];
+  return [];
+}
+
+/** A mock of the stage text so screenshots read like the product (the real DOM belongs to the shell). */
+function drawMockUI(ctx, w, h, mode, text) {
+  if (!mode) return;
+  const S = slots(w, h);
+  const F = '-apple-system, "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC", sans-serif';
+  const put = (str, r, px, a, weight = 400) => {
+    ctx.font = `${weight} ${px}px ${F}`; ctx.fillStyle = `rgba(239,232,218,${a})`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
+    ctx.fillText(str, r.x + r.w / 2, r.y + r.h / 2);
+    ctx.shadowColor = 'transparent';
+  };
+  // the bottom scrim (spec --scrim-bottom)
+  const sh = mode === 'chrome' ? 0.30 * h : 0.18 * h;
+  const g = ctx.createLinearGradient(0, h, 0, h - sh);
+  g.addColorStop(0, `rgba(3,4,7,${mode === 'chrome' ? 0.78 : 0.47})`); g.addColorStop(0.4, `rgba(3,4,7,${mode === 'chrome' ? 0.46 : 0.28})`); g.addColorStop(1, 'rgba(3,4,7,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, h - sh, w, sh);
+  if (text?.caption && mode !== 'rest') {
+    const lines = text.caption;
+    lines.forEach((l, i) => put(l, { x: S.caption.x, y: S.caption.y + i * 26, w: S.caption.w, h: 26 }, 15, 0.92));
+  }
+  put(text?.meta || '1998 年 7 月 14 日 22:00 · 杭州', S.meta, 12, mode === 'chrome' ? 0.62 : 0.40);
+  if (mode === 'chrome') {
+    put(text?.summary || '亏凸月 · 农历闰五月廿一 · 小暑 · 4,267 颗星', S.summary, 12, 0.46);
+    put('聆听　　留存　　两个人　　分享', S.actions, 14, 0.80);
+    ctx.font = `400 12px ${F}`; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(239,232,218,.66)';
+    ctx.fillText('星官　有声　体感', S.toggles.x + S.toggles.w - 10, S.toggles.y + 22);
+  }
+}
+
+function composite(cam, ov, { dpr, ui, text, debugUI, crop } = {}) {
+  const w = cam.w, h = cam.h;
+  const out = document.createElement('canvas');
+  const cw = crop ? crop.w : w, ch = crop ? crop.h : h;
+  out.width = Math.round(cw * dpr); out.height = Math.round(ch * dpr);
+  const ctx = out.getContext('2d');
+  const sx = crop ? crop.x * dpr : 0, sy = crop ? crop.y * dpr : 0;
+  ctx.drawImage(glCanvas, sx, sy, out.width, out.height, 0, 0, out.width, out.height);
+  if (ov) ctx.drawImage(ov.canvas, sx, sy, out.width, out.height, 0, 0, out.width, out.height);
+  ctx.setTransform(dpr, 0, 0, dpr, crop ? -crop.x * dpr : 0, crop ? -crop.y * dpr : 0);
+  drawMockUI(ctx, w, h, ui, text);
+  if (debugUI) {
+    ctx.strokeStyle = 'rgba(255,80,80,.55)'; ctx.lineWidth = 1;
+    for (const r of uiRects(w, h, ui)) ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w, r.h);
+  }
+  return out;
+}
+
+function makeCam(w, h, view) {
+  const cam = new Camera();
+  cam.setSize(w, h);
+  Object.assign(cam, view);
+  cam.update();
+  return cam;
+}
+
+function newOverlay(w, h, dpr, culture = 'cn') {
+  const c = document.createElement('canvas');
+  const ov = new Overlay(c, catalog);
+  ov.resize(w, h, dpr);
+  ov.setCulture(culture);
+  return ov;
+}
+
+/** Drive draw() from t0 to t0 + ms in frame steps (fades and growth are time based). */
+function run(ov, state, t0, ms, step = 33) {
+  let painted = 0;
+  for (let t = t0; t <= t0 + ms + 0.5; t += step) { state.now = t; if (ov.draw(state)) painted++; }
+  return painted;
+}
+
+const starIdx = (en) => { for (const s of catalog.names.values()) if (s.en === en) return s.i; return -1; };
+const starN = (M, i) => mul(M, [catalog.stars.pos[i * 3], catalog.stars.pos[i * 3 + 1], catalog.stars.pos[i * 3 + 2]]);
+const zenithOf = (M) => [M[2], M[5], M[8]]; // row 3 of M (NEU z in EQJ)
+const png = (c) => c.toDataURL('image/png');
+
+// ------------------------------------------------------------------ scenes
+const SCENES = {};
+
+// S5: arrival settled; hero reticle converging, 2–3 asterisms nearest the hero growing, hero tag, compass
+SCENES.arrival = ({ at = 1400, w = 390, h = 844, dpr = 2, culture = 'cn', key = 'hz' } = {}) => {
+  const N = night(key);
+  const cam = makeCam(w, h, standView(N.hero.az, w, h, N.hero.alt));
+  cam.Pfixed = null; cam.update();
+  const ov = newOverlay(w, h, dpr, culture);
+  ov.setUIRects(uiRects(w, h, 'chrome'));
+  const focus = ov.focusAsterisms(cam, N.sky.M, 3, 25, N.hero.n);
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1, bodies: 1,
+    lines: { mode: 'focus', focusIds: focus, origin: N.hero.n },
+    reticle: N.hero.reticle ? { n: N.hero.n, t0, kind: 'hero' } : null,
+    tags: N.hero.label ? [{ n: N.hero.n, text: N.hero.label }] : [] };
+  run(ov, state, t0, at);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  const cap = N.hero.caption;
+  return { canvas: composite(cam, ov, { dpr, ui: 'chrome', text: { caption: split(cap, 20) } }),
+    info: { hero: N.hero.kind, label: N.hero.label, focus: focus.map((id) => nameOf(ov, id)), alt: cam.alt, az: cam.az, P: cam.P, stats: ov.stats } };
+};
+
+// S8: dragging, lines within 45° at α.16 × mask, star names, the one asterism nearest the centre
+SCENES.drag = ({ w = 390, h = 844, dpr = 2, culture = 'cn', key = 'hz', view, ui = null, at = 700 } = {}) => {
+  const N = night(key);
+  const vega = starN(N.sky.M, starIdx('Vega')), altair = starN(N.sky.M, starIdx('Altair'));
+  const mid = altAz([vega[0] + altair[0], vega[1] + altair[1], vega[2] + altair[2]].map((x) => x / 2));
+  const cam = makeCam(w, h, view || { az: mid.az, alt: Math.min(60, mid.alt), fov: 72 });
+  const ov = newOverlay(w, h, dpr, culture);
+  ov.setUIRects(uiRects(w, h, ui));
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1, dragging: true, lines: { mode: 'drag', focusIds: [] } };
+  run(ov, state, t0, at);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  return { canvas: composite(cam, ov, { dpr, ui, debugUI: !!ui }), info: { az: cam.az, alt: cam.alt, fov: cam.fov, P: cam.P, labels: ov._labels.filter((l) => l.t > 0).map((l) => l.text), stats: ov.stats } };
+};
+
+// drag released: lines fade over 1.8 s, names over 1.2 s (snapshot mid-fade)
+SCENES.release = ({ w = 390, h = 844, dpr = 2, after = 900 } = {}) => {
+  const N = night('hz');
+  const vega = altAz(starN(N.sky.M, starIdx('Vega')));
+  const cam = makeCam(w, h, { az: vega.az, alt: 50, fov: 72 });
+  const ov = newOverlay(w, h, dpr);
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, dragging: true, lines: { mode: 'drag', focusIds: [] } };
+  run(ov, state, t0, 600);
+  state.dragging = false; state.lines = { mode: 'focus', focusIds: [] };
+  run(ov, state, t0 + 633, after);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  return { canvas: composite(cam, ov, { dpr }), info: { dragF: ov._dragF.v, namesF: ov._namesF.v } };
+};
+
+// S11: a tapped star: sel reticle, its asterism at α.36 with its name at α.60
+SCENES.select = ({ w = 390, h = 844, dpr = 2, star = 'Altair', culture = 'cn', at = 600 } = {}) => {
+  const N = night('hz');
+  const i = starIdx(star), n = starN(N.sky.M, i), aa = altAz(n);
+  const cam = makeCam(w, h, { az: aa.az, alt: Math.max(altForHorizonAt(0.82, 72), aa.alt - 10), fov: 72 });
+  const ov = newOverlay(w, h, dpr, culture);
+  ov.setUIRects(uiRects(w, h, 'rest'));
+  const sel = ov.asterismFor({ type: 'star', index: i }, N.sky.M, N.sky);
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1,
+    lines: { mode: 'focus', focusIds: [], selId: sel }, reticle: { n, t0, kind: 'sel' } };
+  run(ov, state, t0, at);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky, { sel: i }));
+  return { canvas: composite(cam, ov, { dpr, ui: 'rest' }), info: { sel, name: nameOf(ov, sel) } };
+};
+
+// S9 tags: the Moon and a planet held near the centre (成都 2000-01-02 06:10: the Moon is the hero)
+SCENES.tags = ({ w = 390, h = 844, dpr = 2, key = 'cd', at = 800 } = {}) => {
+  const N = night(key);
+  const tags = tagsFor(catalog, N.sky, N.facts);
+  const cam = makeCam(w, h, standView(N.hero.az, w, h, N.hero.alt));
+  const ov = newOverlay(w, h, dpr);
+  ov.setUIRects(uiRects(w, h, 'caption'));
+  const t0 = 10000;
+  const shown = tags.filter((t) => { const p = cam.project(t.n, {}); return p && p.x > 0.1 * w && p.x < 0.9 * w && p.y > 0.1 * h && p.y < 0.7 * h; });
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1,
+    lines: { mode: 'focus', focusIds: ov.focusAsterisms(cam, N.sky.M, 2, 25, N.hero.n), origin: N.hero.n },
+    reticle: N.hero.reticle ? { n: N.hero.n, t0, kind: 'hero' } : null,
+    tags: shown.map((t) => ({ n: t.n, text: t.text })) };
+  run(ov, state, t0, at);
+  run(ov, state, t0 + at + 33, 3000);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  return { canvas: composite(cam, ov, { dpr, ui: 'caption', text: { caption: split(N.hero.caption, 20), meta: '2000 年 1 月 2 日 06:10 · 成都' } }),
+    info: { hero: N.hero.kind, tags: shown.map((t) => t.text), moonAlt: N.sky.moon.alt, illum: N.sky.moonPhase.illum } };
+};
+
+// S9 below-horizon target: face its azimuth at the stand framing, marker off the ridge
+SCENES.marker = ({ w = 390, h = 844, dpr = 2 } = {}) => {
+  const N = night('hz');
+  const tour = buildTour(catalog, N.facts, N.sky, N.hero, '你');
+  let item = tour.find((t) => t.marker);
+  if (!item) { // none on this night: the Moon's azimuth a few hours earlier would be below; synthesise one
+    const n = [Math.cos(115 * DEG) * Math.cos(-12 * DEG), Math.sin(115 * DEG) * Math.cos(-12 * DEG), Math.sin(-12 * DEG)];
+    item = { az: 115, marker: { n, label: '月亮 · 地平线下 12°' } };
+  }
+  const cam = makeCam(w, h, standView(item.az, w, h));
+  const ov = newOverlay(w, h, dpr);
+  ov.setUIRects(uiRects(w, h, 'caption'));
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1, lines: { mode: 'focus', focusIds: [] }, marker: item.marker };
+  run(ov, state, t0, 600);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  return { canvas: composite(cam, ov, { dpr, ui: 'caption', text: { caption: split(item.text || '那一刻，亏凸月还在地平线以下。', 20) } }), info: { marker: item.marker.label, az: item.az } };
+};
+
+// S17: B's horizon across A's sky, dashed, drawn left→right, label near the right edge; below it dims
+SCENES.pair = ({ w = 390, h = 844, dpr = 2, progress = 1 } = {}) => {
+  const A = night('hz'), B = night('cd');
+  // zB = M_A · M_Bᵀ · z  (B's zenith, in A's NEU)
+  const MB = B.sky.M, zEq = [MB[2], MB[5], MB[8]];
+  const zB = mul(A.sky.M, zEq);
+  // horizon at 0.60H; B's line crossing at ~35% of the height (spec S17: 25–45%)
+  const alt = altForHorizonAt(0.60, 84);
+  const cam = makeCam(w, h, { az: pairAz(zB, w, h, alt, 84), alt, fov: 84, Pfixed: 0 });
+  const ov = newOverlay(w, h, dpr);
+  ov.setUIRects(uiRects(w, h, 'rest'));
+  const t0 = 10000;
+  const state = { cam, M: A.sky.M, sky: A.sky, terrainH: TERRAIN, now: t0, compass: 0, bodies: 1,
+    lines: { mode: 'focus', focusIds: [] }, horizonLine: { zB, label: '小红的地平线', progress } };
+  run(ov, state, t0, 300);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, A.sky, { zB, sharedDim: 0.25, sharedT: progress }));
+  return { canvas: composite(cam, ov, { dpr }), info: { zB, angle: Math.acos(zB[2]) / DEG } };
+};
+
+// a near-level B horizon (zeniths ~20° apart: the usual case for two people from one region)
+SCENES.pairLevel = ({ w = 390, h = 844, dpr = 2, progress = 1 } = {}) => {
+  const A = night('hz'), B = night('hz', { date: '1999-03-02', time: '05:20' });
+  const zB = mul(A.sky.M, [B.sky.M[2], B.sky.M[5], B.sky.M[8]]);
+  const alt = altForHorizonAt(0.60, 84);
+  const cam = makeCam(w, h, { az: pairAz(zB, w, h, alt, 84), alt, fov: 84, Pfixed: 0 });
+  const ov = newOverlay(w, h, dpr);
+  ov.setUIRects(uiRects(w, h, 'rest'));
+  const t0 = 10000;
+  const state = { cam, M: A.sky.M, sky: A.sky, terrainH: TERRAIN, now: t0, compass: 0, bodies: 1,
+    lines: { mode: 'focus', focusIds: [] }, horizonLine: { zB, label: '小红的地平线', progress } };
+  run(ov, state, t0, 300);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, A.sky, { zB, sharedDim: 0.25, sharedT: progress }));
+  return { canvas: composite(cam, ov, { dpr, ui: 'rest' }), info: { angle: Math.acos(zB[2]) / DEG, az: cam.az } };
+};
+
+// a daytime birth (悉尼 13:00): the Sun is a small crisp disc; facing away from it per §3.2, so here we
+// look toward it to check the disc and its tap target
+SCENES.day = ({ w = 390, h = 844, dpr = 2 } = {}) => {
+  const N = night('syd', { time: '13:00' });
+  const cam = makeCam(w, h, { az: N.sky.sun.az, alt: Math.max(altForHorizonAt(0.82, 72), N.sky.sun.alt - 8), fov: 72 });
+  const ov = newOverlay(w, h, dpr);
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1, lines: { mode: 'off' }, sunAlpha: 1 };
+  run(ov, state, t0, 300);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  const p = cam.project(N.sky.sun.n, {});
+  const pick = ov.pick({ cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN }, p.x + 6, p.y);
+  return { canvas: composite(cam, ov, { dpr, ui: 'rest', text: { meta: '2010 年 6 月 1 日 13:00 · 悉尼' } }), info: { sunAlt: N.sky.sun.alt, hero: N.hero.kind, pick } };
+};
+
+// looking straight up: the borderless vault (fov 100, P → 0.8), drag lines curve with the projection
+SCENES.vault = ({ w = 390, h = 844, dpr = 2 } = {}) => {
+  const N = night('hz');
+  const cam = makeCam(w, h, { az: 180, alt: 86, fov: 100 });
+  const ov = newOverlay(w, h, dpr);
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1, dragging: true, lines: { mode: 'drag', focusIds: [] } };
+  run(ov, state, t0, 700);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  return { canvas: composite(cam, ov, { dpr }), info: { P: cam.P } };
+};
+
+// the ridge clip: lines and names end exactly at the skyline (low, zoomed, dragging)
+SCENES.ridge = ({ w = 390, h = 844, dpr = 3, culture = 'cn' } = {}) => {
+  const N = night('hz');
+  // the Milky Way core low in the south: many segments cross the ridge
+  const core = altAz(mul(N.sky.M, radec(266.4, -29)));
+  const cam = makeCam(w, h, { az: core.az, alt: altForHorizonAt(0.70, 40), fov: 40 });
+  const ov = newOverlay(w, h, dpr, culture);
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1, dragging: true, lines: { mode: 'drag', focusIds: [] } };
+  run(ov, state, t0, 700);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  return { canvas: composite(cam, ov, { dpr, crop: { x: 0, y: 0.45 * h, w, h: 0.35 * h } }), info: {} };
+};
+
+// the Moon rising behind the ridge (clipped by the same skyline the shader draws)
+SCENES.moonrise = ({ w = 390, h = 844, dpr = 3 } = {}) => {
+  const city = CITIES.hz;
+  // walk the evening of 1998-07-20 (waning gibbous rising ~22–23 h) for the Moon ~0.6° above the horizon
+  let best = null;
+  const start = zonedToUtc(1998, 7, 14, 21, 0, city.tz).getTime();
+  for (let m = 0; m < 360; m += 1) {
+    const sky = skyState(new Date(start + m * 60000), city.lat, city.lon);
+    const ridge = ov0.skyline.at(Math.atan2(sky.moon.n[1], sky.moon.n[0])) / DEG;
+    const d = Math.abs(sky.moon.alt - (ridge + 0.05));
+    if (!best || d < best.d) best = { d, sky, ridge };
+  }
+  const sky = best.sky;
+  const cam = makeCam(w, h, { az: sky.moon.az, alt: altForHorizonAt(0.78, 18), fov: 18 });
+  const ov = newOverlay(w, h, dpr);
+  const t0 = 10000;
+  const state = { cam, M: sky.M, sky, terrainH: TERRAIN, now: t0, compass: 0, lines: { mode: 'focus', focusIds: [] } };
+  run(ov, state, t0, 100);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, sky));
+  const p = cam.project(sky.moon.n, {});
+  return { canvas: composite(cam, ov, { dpr, crop: { x: p.x - 70, y: p.y - 60, w: 140, h: 100 } }),
+    info: { moonAlt: sky.moon.alt, ridge: best.ridge, date: sky.date.toISOString(), r: discRadiusPx(cam, sky.moon) } };
+};
+
+// Moon phases through one lunation: each tile zoomed on the Moon (fov 14, r = 14 px), an arrow shows
+// the true direction of the Sun along the sky; the bright limb must face it
+SCENES.phases = ({ dpr = 3 } = {}) => {
+  const city = CITIES.hz, tiles = [];
+  const base = Date.UTC(2024, 0, 11, 12); // new moon 2024-01-11
+  for (const days of [2.5, 4.5, 7.4, 10, 12.5, 14.8, 17.5, 20, 22.2, 25, 27]) {
+    let best = null;
+    for (let m = -12 * 60; m <= 12 * 60; m += 20) {
+      const date = new Date(base + days * 86400000 + m * 60000);
+      const sky = skyState(date, city.lat, city.lon);
+      if (sky.sun.alt > -7 || sky.moon.alt < 12) continue;
+      if (!best || sky.moon.alt > best.moon.alt) best = sky;
+    }
+    if (best) tiles.push(best);
+  }
+  const T = 150, cols = 4, rows = Math.ceil(tiles.length / cols);
+  const out = document.createElement('canvas');
+  out.width = cols * T * dpr; out.height = rows * T * dpr;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#030407'; ctx.fillRect(0, 0, out.width, out.height);
+  const info = [];
+  tiles.forEach((sky, k) => {
+    const cam = makeCam(T, T, { az: sky.moon.az, alt: sky.moon.alt, fov: 7 });
+    renderer.resize(T, T, dpr);
+    renderer.render(glState(cam, sky));
+    const ov = newOverlay(T, T, dpr);
+    ov.draw({ cam, M: sky.M, sky, terrainH: TERRAIN, now: 1000, lines: { mode: 'off' }, compass: 0 });
+    const x = (k % cols) * T * dpr, y = Math.floor(k / cols) * T * dpr;
+    ctx.drawImage(glCanvas, x, y); ctx.drawImage(ov.canvas, x, y);
+    // debug arrow toward the Sun (screen direction along the great circle)
+    const ang = limbAngle(cam, sky.moon.n, sky.sun.n);
+    const c = { x: x + T * dpr / 2, y: y + T * dpr / 2 };
+    ctx.strokeStyle = 'rgba(255,120,80,.7)'; ctx.lineWidth = dpr;
+    ctx.beginPath(); ctx.moveTo(c.x + Math.cos(ang) * 24 * dpr, c.y + Math.sin(ang) * 24 * dpr); ctx.lineTo(c.x + Math.cos(ang) * 44 * dpr, c.y + Math.sin(ang) * 44 * dpr); ctx.stroke();
+    ctx.font = `${10 * dpr}px sans-serif`; ctx.fillStyle = 'rgba(239,232,218,.6)'; ctx.textAlign = 'center';
+    ctx.fillText(`${Math.round(sky.moonPhase.illum * 100)}% ${sky.moonPhase.name}`, c.x, y + (T - 10) * dpr);
+    info.push({ illum: +sky.moonPhase.illum.toFixed(3), name: sky.moonPhase.name, alt: +sky.moon.alt.toFixed(1), limbDeg: +(ang / DEG).toFixed(1), r: +discRadiusPx(cam, sky.moon).toFixed(2), ...litSide(ov, cam, sky) });
+  });
+  return { canvas: out, info };
+};
+
+// S13 listen: ripples on stars that just crossed the centre line (+ names of the brightest)
+SCENES.listen = ({ w = 390, h = 844, dpr = 2 } = {}) => {
+  const N = night('hz');
+  const vega = altAz(starN(N.sky.M, starIdx('Vega')));
+  const cam = makeCam(w, h, { az: vega.az + 3, alt: 35, fov: 84 });
+  const ov = newOverlay(w, h, dpr);
+  ov.setUIRects(uiRects(w, h, 'rest'));
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, lines: { mode: 'off' } };
+  ov.addRipple(starN(N.sky.M, starIdx('Vega')), t0, { label: '织女星' });
+  const deneb = starIdx('Deneb');
+  ov.addRipple(starN(N.sky.M, deneb), t0 + 200, {});
+  run(ov, state, t0, 400);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky, { listenAz: cam.az, listenOn: 1 }));
+  return { canvas: composite(cam, ov, { dpr, ui: 'rest' }), info: {} };
+};
+
+// desktop 1440×900: arrival with lines, names and compass
+SCENES.desktop = ({ at = 3600 } = {}) => SCENES.arrival({ w: 1440, h: 900, dpr: 1, at });
+
+// short phone 360×640 with chrome: labels must stay clear of the stage text
+SCENES.short = () => SCENES.drag({ w: 360, h: 640, dpr: 2, ui: 'chrome', view: null });
+
+// the rest rule (b): after 1.2 s still, 1–2 asterisms within 22° grow in, no names
+SCENES.rest = ({ w = 390, h = 844, dpr = 2, at = 3200 } = {}) => {
+  const N = night('hz');
+  const cam = makeCam(w, h, { az: 150, alt: 40, fov: 72 });
+  const ov = newOverlay(w, h, dpr);
+  ov.setUIRects(uiRects(w, h, 'rest'));
+  const ids = ov.focusAsterisms(cam, N.sky.M, 2, 22);
+  const t0 = 10000;
+  const state = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: t0, compass: 1, lines: { mode: 'focus', focusIds: ids, labels: false } };
+  run(ov, state, t0, at);
+  renderer.resize(w, h, dpr);
+  renderer.render(glState(cam, N.sky));
+  return { canvas: composite(cam, ov, { dpr, ui: 'rest' }), info: { ids: ids.map((id) => nameOf(ov, id)) } };
+};
+
+// IAU culture at the same arrival
+SCENES.iau = ({ at = 3600 } = {}) => SCENES.arrival({ culture: 'iau', at });
+
+// export: a 便签 card at 1080×1440 with lines on, the Moon and planets, B's horizon baked in
+SCENES.export = () => {
+  const A = night('hz'), B = night('cd');
+  const W = 1080, H = 1440, cssW = 390, unit = W / cssW;
+  const zB = mul(A.sky.M, [B.sky.M[2], B.sky.M[5], B.sky.M[8]]);
+  const alt = altForHorizonAt(0.66, 76);
+  const cam = makeCam(W, H, { az: pairAz(zB, W, H, alt, 76, 0.38), alt, fov: 76, Pfixed: 0 });
+  renderer.resize(W, H, 1);
+  renderer.render(glState(cam, A.sky, { sizeGain: unit, zB, sharedDim: 0.25, sharedT: 1, dither: 0.5 / 255, vignette: 0.08 }));
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(glCanvas, 0, 0);
+  const ov = new Overlay(null, catalog);
+  ov.setCulture('cn');
+  ov.drawExport(ctx, { cam, M: A.sky.M, sky: A.sky, terrainH: TERRAIN }, { unit, lines: true, lineWidth: 1.2 * W / 1290,
+    horizonLine: { zB, label: '小红的地平线', width: 1.5, dash: [12, 10], alpha: 0.40, labelAlpha: 0.5, fontPx: 20 } });
+  return { canvas: out, info: { unit } };
+};
+
+// ------------------------------------------------------------------ helpers
+/** Facing azimuth where B's horizon crosses the centre column at `frac` of the height, shared sky above. */
+function pairAz(zB, w, h, alt, fov, frac = 0.35) {
+  let best = { d: Infinity, az: 0 };
+  for (let az = 0; az < 360; az += 2) {
+    const cam = makeCam(w, h, { az, alt, fov, Pfixed: 0 });
+    let prev = null;
+    for (let y = 2; y < h * 0.62; y += 3) {
+      const n = cam.unproject(w / 2, y, [0, 0, 0]), s = n[0] * zB[0] + n[1] * zB[1] + n[2] * zB[2];
+      if (prev !== null && prev > 0 && s <= 0) { const d = Math.abs(y / h - frac); if (d < best.d) best = { d, az }; break; }
+      prev = s;
+    }
+  }
+  return best.az;
+}
+
+function nameOf(ov, id) { const g = ov._geo(); const a = g?.byId.get(String(id)); return a === undefined ? id : g.asts[a].zh; }
+function split(text, n) { const out = []; let s = text; while (s.length > n) { out.push(s.slice(0, n)); s = s.slice(n); } out.push(s); return out; }
+
+/** Brightness-weighted centroid of the drawn Moon, relative to its centre, in the overlay canvas. */
+function litSide(ov, cam, sky) {
+  const p = cam.project(sky.moon.n, {}), dpr = ov.dpr, r = discRadiusPx(cam, sky.moon);
+  const x0 = Math.round((p.x - r) * dpr), y0 = Math.round((p.y - r) * dpr), S = Math.round(2 * r * dpr);
+  const d = ov.ctx.getImageData(x0, y0, S, S).data;
+  let sx = 0, sy = 0, sw = 0;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const k = (y * S + x) * 4, L = d[k] * d[k + 3] / 255;
+    if (L < 60) continue;
+    sx += (x - S / 2) * L; sy += (y - S / 2) * L; sw += L;
+  }
+  const ang = limbAngle(cam, sky.moon.n, sky.sun.n);
+  if (!sw) return { litDot: null };
+  const cx = sx / sw, cy = sy / sw, l = Math.hypot(cx, cy) || 1;
+  return { litDot: +((cx / l) * Math.cos(ang) + (cy / l) * Math.sin(ang)).toFixed(3), litOff: +(l / dpr).toFixed(2) };
+}
+
+const ov0 = new Overlay(null, catalog);
+ov0.skyline.set(TERRAIN);
+
+window.scene = async (name, opts) => {
+  const r = SCENES[name](opts || {});
+  return { url: png(r.canvas), info: r.info };
+};
+window.sceneNames = () => Object.keys(SCENES);
+
+// ------------------------------------------------------------------ assertions
+window.tests = async () => {
+  const out = [];
+  const ok = (name, cond, detail) => out.push({ name, ok: !!cond, detail });
+  const N = night('hz');
+  const w = 390, h = 844, dpr = 2;
+
+  // pick: the brightest wins within 24 px, nothing on empty sky
+  {
+    const vi = starIdx('Vega'), vn = starN(N.sky.M, vi), va = altAz(vn);
+    const cam = makeCam(w, h, { az: va.az, alt: 55, fov: 72 });
+    const ov = newOverlay(w, h, dpr);
+    const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN };
+    const p = cam.project(vn, {});
+    const r0 = ov.pick(s, p.x, p.y), r1 = ov.pick(s, p.x + 18, p.y), r2 = ov.pick(s, p.x + 30, p.y);
+    ok('pick on Vega', r0 && r0.type === 'star' && r0.index === vi, r0);
+    ok('pick 18 px from Vega', r1 && r1.index === vi, r1);
+    ok('pick 30 px away is not Vega', !r2 || r2.index !== vi, r2);
+    // a point of empty sky (far from any named star ≤ 4.5)
+    let empty = null;
+    for (let y = 120; y < 600 && !empty; y += 23) for (let x = 30; x < 360 && !empty; x += 23) if (!ov.pick(s, x, y)) empty = { x, y };
+    ok('empty sky picks nothing', !!empty, empty);
+    // a star below the ridge is not pickable
+    const low = [...catalog.names.values()].filter((n) => n.mag < 2.5).map((n) => ({ n, v: starN(N.sky.M, n.i) }))
+      .find(({ v }) => v[2] < 0 && v[2] > -0.04);
+    if (low) {
+      const la = altAz(low.v);
+      const c2 = makeCam(w, h, { az: la.az, alt: 20, fov: 72 });
+      const q = c2.project(low.v, {});
+      const r = q && ov.pick({ cam: c2, M: N.sky.M, sky: N.sky, terrainH: TERRAIN }, q.x, q.y);
+      ok('star below the ridge is not picked', !r || r.index !== low.n.i, { alt: la.alt, r });
+    }
+  }
+
+  // Moon pick (成都: the Moon is up)
+  {
+    const C = night('cd');
+    const cam = makeCam(w, h, standView(C.sky.moon.az, w, h, C.sky.moon.alt));
+    const ov = newOverlay(w, h, dpr);
+    const p = cam.project(C.sky.moon.n, {});
+    const r = ov.pick({ cam, M: C.sky.M, sky: C.sky, terrainH: TERRAIN }, p.x + 12, p.y + 4);
+    ok('pick the Moon near its edge', r && r.type === 'body' && r.id === 'Moon', r);
+  }
+
+  // dirty flag: nothing changes → no repaint; tiny camera moves under the threshold → none; a real move → repaint
+  {
+    const cam = makeCam(w, h, { az: 150, alt: 30, fov: 72 });
+    const ov = newOverlay(w, h, dpr);
+    const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 1000, compass: 1, lines: { mode: 'off' } };
+    run(ov, s, 1000, 1500);
+    s.now = 2600; const a = ov.draw(s);
+    s.now = 2633; const b = ov.draw(s);
+    cam.az += 0.01; cam.update(); s.now = 2666; const c = ov.draw(s);
+    cam.az += 0.05; cam.update(); s.now = 2700; const d = ov.draw(s);
+    ok('idle frame skips the repaint', a === false && b === false, { a, b });
+    ok('0.01° move is below threshold', c === false, c);
+    ok('0.06° move repaints', d === true, d);
+    // a new M (time changed) repaints
+    const M2 = skyMatrix(new Date(N.moment.getTime() + 60000), N.city.lat, N.city.lon);
+    s.M = M2; s.now = 2733; const e = ov.draw(s);
+    ok('new sky moment repaints', e === true, e);
+  }
+
+  // focus: the hero's own asterism comes first; ids for both cultures
+  {
+    const vi = starIdx('Vega'), vn = starN(N.sky.M, vi), va = altAz(vn);
+    const cam = makeCam(w, h, { az: va.az, alt: Math.min(60, va.alt - 10), fov: 72 });
+    const ov = newOverlay(w, h, dpr, 'cn');
+    const ids = ov.focusAsterisms(cam, N.sky.M, 3, 25, vn);
+    ok('focus (cn) starts with 织女', nameOf(ov, ids[0]) === '织女', ids.map((id) => nameOf(ov, id)));
+    ov.setCulture('iau');
+    const ids2 = ov.focusAsterisms(cam, N.sky.M, 3, 25, vn);
+    ok('focus (iau) starts with Lyr', ids2[0] === 'Lyr', ids2);
+    ok('asterismFor(Vega, iau) = Lyr', ov.asterismFor({ type: 'star', index: vi }, N.sky.M, N.sky) === 'Lyr');
+    ov.setCulture('cn');
+    ok('asterismFor(Vega, cn) = 织女', nameOf(ov, ov.asterismFor({ type: 'star', index: vi }, N.sky.M, N.sky)) === '织女');
+    // keep rule: an id retained while within 30°, dropped past it
+    const near = ov.focusAsterisms(cam, N.sky.M, 2, 22);
+    cam.az += 25; cam.update();
+    const kept = ov.focusAsterisms(cam, N.sky.M, 2, 22, { keep: near, keepDeg: 30 });
+    ok('rest keep rule retains near ids', near.length > 0 && kept.some((id) => near.includes(id)) === near.some((id) => {
+      const g = ov._geo(), a = g.byId.get(id); const c = [g.cNeu[a * 3], g.cNeu[a * 3 + 1], g.cNeu[a * 3 + 2]];
+      return Math.acos(c[0] * cam.f[0] + c[1] * cam.f[1] + c[2] * cam.f[2]) <= 30 * DEG;
+    }), { near, kept });
+  }
+
+  // ridge clip: in drag mode the overlay has no line pixels on the ground (below the skyline)
+  {
+    const core = altAz(mul(N.sky.M, radec(266.4, -29)));
+    const cam = makeCam(w, h, { az: core.az, alt: altForHorizonAt(0.62, 50), fov: 50 });
+    const ov = newOverlay(w, h, dpr);
+    const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 1000, compass: 0, dragging: true, names: 0, lines: { mode: 'drag', focusIds: [] } };
+    run(ov, s, 1000, 700);
+    const img = ov.ctx.getImageData(0, 0, w * dpr, h * dpr).data;
+    let leaks = 0, above = 0, worst = 0;
+    const v = [0, 0, 0];
+    for (let x = 0; x < w * dpr; x += 1) {
+      const px = (x + 0.5) / dpr;
+      // the skyline's screen y at this column: unproject the horizon row, lift to the ridge
+      const n = cam.unproject(px, cam.cy + 50, [0, 0, 0]);
+      const az = Math.atan2(n[1], n[0]);
+      const t = ov.skyline.at(az);
+      const q = cam.project([Math.cos(t) * Math.cos(az), Math.cos(t) * Math.sin(az), Math.sin(t)], {});
+      if (!q) continue;
+      for (let y = Math.ceil((q.y + 1.5) * dpr); y < h * dpr; y++) {
+        const a = img[(y * w * dpr + x) * 4 + 3];
+        if (a > 8) { leaks++; worst = Math.max(worst, y / dpr - q.y); }
+      }
+      for (let y = 0; y < Math.floor((q.y - 2) * dpr); y++) if (img[(y * w * dpr + x) * 4 + 3] > 8) above++;
+    }
+    ok('no line pixels below the skyline', leaks === 0, { leaks, worst, above });
+    ok('lines are drawn above it', above > 500, { above });
+  }
+
+  // reticle converges once: 16 → 9 px in 420 ms, then holds (no pulse)
+  {
+    const vi = starIdx('Altair'), vn = starN(N.sky.M, vi), va = altAz(vn);
+    const cam = makeCam(w, h, { az: va.az, alt: va.alt, fov: 72 });
+    const ov = newOverlay(w, h, dpr);
+    const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 1000, lines: { mode: 'off' }, reticle: { n: vn, t0: 1000, kind: 'hero' } };
+    const radius = () => {
+      const img = ov.ctx.getImageData(0, 0, w * dpr, h * dpr).data, p = cam.project(vn, {});
+      // the right tick: first ember pixel to the right of the centre on its row
+      const y = Math.round(p.y * dpr - 0.5);
+      for (let x = Math.round(p.x * dpr) + 4; x < Math.round(p.x * dpr) + 60; x++) {
+        const k = (y * w * dpr + x) * 4;
+        if (img[k + 3] > 60 && img[k] > img[k + 2]) return (x - p.x * dpr) / dpr;
+      }
+      return null;
+    };
+    run(ov, s, 1000, 70); const r0 = radius();
+    run(ov, s, 1033, 420); const r1 = radius();
+    run(ov, s, 1500, 3000); const r2 = radius();
+    const painted = run(ov, s, 4600, 1000);
+    ok('reticle converges visibly (≥ 12 px at 70 ms)', r0 !== null && r0 > 12, r0);
+    ok('reticle settles at 9 px', r1 !== null && Math.abs(r1 - 9) < 0.8, r1);
+    ok('reticle holds (no loop, no repaint)', r2 !== null && Math.abs(r2 - 9) < 0.8 && painted === 0, { r2, painted });
+  }
+
+  // labels never under UI text; star names placed while dragging
+  {
+    const cam = makeCam(360, 640, { az: 170, alt: 38, fov: 72 });
+    const ov = newOverlay(360, 640, 2);
+    const rects = uiRects(360, 640, 'chrome');
+    ov.setUIRects(rects);
+    const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 1000, compass: 1, dragging: true, lines: { mode: 'drag', focusIds: [] } };
+    let bad = 0, shown = 0;
+    for (let k = 0; k < 90; k++) {
+      cam.az += 1.2; cam.update();
+      s.now = 1000 + k * 33;
+      ov.draw(s);
+      for (const L of ov._labels) {
+        if (L.a <= 0 || !ov._labelPos(L, cam, L.slot)) continue;
+        shown++;
+        const x0 = ov._lx, y0 = ov._ly - 7, x1 = ov._lx + L.w, y1 = ov._ly + 7;
+        if (rects.some((r) => x0 < r.x + r.w && r.x < x1 && y0 < r.y + r.h && r.y < y1) && L.base * L.a > 0.01) {
+          // allowed only if it was hidden this frame (t = 0 set by the per-frame check before drawing)
+          if (L.t > 0) bad++;
+        }
+      }
+    }
+    ok('no visible label overlaps the stage text', bad === 0, { bad, shown });
+    ok('some names were shown while dragging', shown > 50, shown);
+  }
+
+  // horizon line is straight at P = 0 (sample three points: collinear)
+  {
+    const A = N, B = night('cd');
+    const zB = mul(A.sky.M, [B.sky.M[2], B.sky.M[5], B.sky.M[8]]);
+    const alt = altForHorizonAt(0.6, 84);
+    const cam = makeCam(w, h, { az: pairAz(zB, w, h, alt, 84), alt, fov: 84, Pfixed: 0 });
+    const ov = newOverlay(w, h, dpr);
+    const s = { cam, M: A.sky.M, sky: A.sky, terrainH: TERRAIN, now: 1000, lines: { mode: 'off' }, horizonLine: { zB, label: '小红的地平线', progress: 1 } };
+    ov.draw(s);
+    const hx = ov._hx, hy = ov._hy;
+    // points of the first run
+    const a = ov._hr[0], b = ov._hr[1];
+    let dev = 0;
+    for (let i = a + 1; i < b - 1; i++) {
+      const x0 = hx[a], y0 = hy[a], x1 = hx[b - 1], y1 = hy[b - 1];
+      const d = Math.abs((x1 - x0) * (y0 - hy[i]) - (x0 - hx[i]) * (y1 - y0)) / Math.hypot(x1 - x0, y1 - y0);
+      if (Math.hypot(hx[i] - w / 2, hy[i] - h / 2) < 2000) dev = Math.max(dev, d);
+    }
+    ok('B horizon is straight at P = 0', dev < 0.05, { dev, points: b - a });
+    ok('B horizon label placed', ov._hlOk, [...ov._hlBox]);
+  }
+
+  // growth: stroke grows (more line pixels over time), completes by 2.8 s + stagger, fade-out 1.8 s
+  {
+    const hero = N.hero;
+    const cam = makeCam(w, h, standView(hero.az, w, h, hero.alt));
+    const ov = newOverlay(w, h, dpr);
+    const focus = ov.focusAsterisms(cam, N.sky.M, 3, 25, hero.n);
+    const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 1000, lines: { mode: 'focus', focusIds: focus, origin: hero.n } };
+    const ink = () => { const d = ov.ctx.getImageData(0, 0, w * dpr, h * dpr).data; let n = 0; for (let i = 3; i < d.length; i += 4) n += d[i]; return n; };
+    const seq = [];
+    let t = 1000;
+    for (const T of [400, 1200, 2000, 2800, 3600, 4200]) { run(ov, s, t, 1000 + T - t); t = 1000 + T + 33; seq.push(ink()); }
+    const growing = seq.slice(0, 5).every((v, i) => i === 0 || v >= seq[i - 1] * 0.98);
+    ok('stroke growth is monotonic', growing, seq);
+    ok('growth completes (≤ 2.8 s + 2 × 0.35 s)', Math.abs(seq[5] - seq[4]) / seq[5] < 0.02, seq.slice(4));
+    const painted = run(ov, s, 5300, 1000);
+    ok('grown lines hold still (no repaint)', painted === 0, painted);
+    s.lines = { mode: 'focus', focusIds: [] };
+    run(ov, s, 6400, 900); const half = ink();
+    run(ov, s, 7333, 1000); const gone = ink();
+    ok('lines fade out over 1.8 s', half > 0 && half < seq[5] * 0.8 && gone === 0, { half, gone, full: seq[5] });
+  }
+  // the marker never sits under the stage text (stand framing: the ridge is in the caption band)
+  {
+    const cam = makeCam(w, h, standView(115, w, h));
+    const ov = newOverlay(w, h, dpr);
+    const rects = uiRects(w, h, 'caption');
+    ov.setUIRects(rects);
+    const n = [Math.cos(115 * DEG) * Math.cos(-12 * DEG), Math.sin(115 * DEG) * Math.cos(-12 * DEG), Math.sin(-12 * DEG)];
+    const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 1000, lines: { mode: 'off' }, marker: { n, label: '月亮 · 地平线下 12°' } };
+    run(ov, s, 1000, 500);
+    const t = ov._tags.find((x) => x.kind === 1);
+    const box = t && [Math.min(t.x, t.lx) - 1, t.y - 7, Math.max(t.x + t.w, t.lx) + 1, t.ly0];
+    const hit = box && rects.some((r) => box[0] < r.x + r.w && r.x < box[2] && box[1] < r.y + r.h && r.y < box[3]);
+    ok('marker clears the stage text', t && t.ok && !hit, { box, rects: rects.map((r) => [r.x, r.y, r.w, r.h]) });
+    const p = cam.project(n, {});
+    ok('marker stays over its azimuth', t && Math.abs(t.lx - cam.project([Math.cos(115 * DEG), Math.sin(115 * DEG), 0], {}).x) < 1, t && t.lx);
+  }
+
+  // B's label never crosses its own line (steep and level cases)
+  for (const [bn, over] of [['cd', null], ['hz', { date: '1999-03-02', time: '05:20' }]]) {
+    const B = night(bn, over);
+    const zB = mul(N.sky.M, [B.sky.M[2], B.sky.M[5], B.sky.M[8]]);
+    const alt = altForHorizonAt(0.6, 84);
+    const cam = makeCam(w, h, { az: pairAz(zB, w, h, alt, 84), alt, fov: 84, Pfixed: 0 });
+    const ov = newOverlay(w, h, dpr);
+    ov.draw({ cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 1000, lines: { mode: 'off' }, horizonLine: { zB, label: '小红的地平线', progress: 1 } });
+    const b = ov._hlBox, hx = ov._hx, hy = ov._hy, runs = ov._hr;
+    let crosses = false;
+    for (let r = 0; r < 32 && runs[r * 2 + 1] > runs[r * 2]; r++) {
+      for (let i = runs[r * 2]; i < runs[r * 2 + 1] - 1; i++) {
+        // sample the chord
+        for (let k = 0; k <= 10; k++) { const x = hx[i] + (hx[i + 1] - hx[i]) * k / 10, y = hy[i] + (hy[i + 1] - hy[i]) * k / 10; if (x > b[0] + 3 && x < b[2] - 3 && y > b[1] + 2 && y < b[3] - 2) crosses = true; }
+      }
+    }
+    ok(`B label clear of its line (${Math.round(Math.acos(zB[2]) / DEG)}° apart)`, ov._hlOk && !crosses, [...b]);
+  }
+
+  // asterism names keep off their own lines when a slot allows it
+  {
+    const hero = N.hero;
+    const cam = makeCam(w, h, standView(hero.az, w, h, hero.alt));
+    const ov = newOverlay(w, h, dpr);
+    ov.setUIRects(uiRects(w, h, 'chrome'));
+    const focus = ov.focusAsterisms(cam, N.sky.M, 3, 25, hero.n);
+    const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 1000, lines: { mode: 'focus', focusIds: focus, origin: hero.n } };
+    run(ov, s, 1000, 4500);
+    const bad = ov._labels.filter((L) => L.kind === 1 && L.t > 0 && ov._labelPos(L, cam, L.slot) && ov._hitsOwnLines(L.ref, ov._lx - 3, ov._ly - 8, ov._lx + L.w + 3, ov._ly + 8, cam));
+    ok('asterism names clear of their own lines', bad.length === 0 && ov._labels.filter((L) => L.kind === 1 && L.t > 0).length === 3, bad.map((L) => L.text));
+  }
+  return out;
+};
+
+// ------------------------------------------------------------------ perf / allocation probe
+window.perf = async () => {
+  const N = night('hz');
+  const w = 390, h = 844, dpr = 3;
+  const cam = makeCam(w, h, { az: 150, alt: 40, fov: 72 });
+  const ov = newOverlay(w, h, dpr);
+  ov.setUIRects(uiRects(w, h, 'chrome'));
+  const s = { cam, M: N.sky.M, sky: N.sky, terrainH: TERRAIN, now: 0, compass: 1, dragging: true, lines: { mode: 'drag', focusIds: [] },
+    tags: [{ n: N.sky.moon.n, text: '月亮 · 亏凸月 73%' }] };
+  // warm up
+  for (let k = 0; k < 120; k++) { cam.az += 0.8; cam.update(); s.now = k * 16.7; ov.draw(s); }
+  const gc = window.gc || (() => {});
+  gc(); gc();
+  const m0 = performance.memory ? performance.memory.usedJSHeapSize : 0;
+  const t0 = performance.now();
+  const K = 600;
+  for (let k = 0; k < K; k++) { cam.az += 0.8; cam.alt = 40 + 10 * Math.sin(k / 40); cam.update(); s.now = 2000 + k * 16.7; ov.draw(s); }
+  const dt = (performance.now() - t0) / K;
+  const m1 = performance.memory ? performance.memory.usedJSHeapSize : 0;
+  gc(); gc();
+  const m2 = performance.memory ? performance.memory.usedJSHeapSize : 0;
+  // an idle (settled) sky: the per-frame cost when nothing changes
+  s.dragging = false; s.lines = { mode: 'focus', focusIds: [] };
+  for (let k = 0; k < 150; k++) { s.now = 20000 + k * 16.7; ov.draw(s); }
+  const t1 = performance.now();
+  let paints = 0;
+  for (let k = 0; k < 600; k++) { s.now = 30000 + k * 16.7; if (ov.draw(s)) paints++; }
+  const idle = (performance.now() - t1) / 600;
+  // the first geometry build cost (both cultures)
+  const tb = performance.now();
+  const fresh = new Overlay(null, catalog);
+  fresh._geo('cn'); fresh._geo('iau');
+  const build = performance.now() - tb;
+  return { msPerDrag: +dt.toFixed(3), pieces: ov.stats.pieces, layouts: ov.stats.layouts, heapDuringKB: Math.round((m1 - m0) / 1024),
+    heapAfterGcKB: Math.round((m2 - m0) / 1024), idleMsPerCall: +idle.toFixed(4), idlePaints: paints, geoBuildMs: +build.toFixed(1) };
+};
+
+window.overlayReady = true;
+</script>
+</body>
+</html>

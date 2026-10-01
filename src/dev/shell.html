@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<title>shell · dev</title>
+<script type="importmap">{"imports":{"astronomy-engine":"/node_modules/astronomy-engine/esm/astronomy.js","qrcode-generator":"/node_modules/qrcode-generator/dist/qrcode.mjs"}}</script>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+  /* dev only: a rendered sky frame stands in for #sky / #overlay */
+  #bg { position: fixed; left: 0; top: 0; width: 100vw; height: var(--H); object-fit: cover; z-index: 0; transform-origin: 0 0; }
+  .dev-hline { position: fixed; left: 0; right: 0; height: 0; border-top: 1px dashed rgba(239, 232, 218, 0.32); z-index: 1; }
+  .dev-hline span { position: absolute; right: 24px; bottom: 6px; font-size: 11px; line-height: 14px; color: rgba(239, 232, 218, 0.5); }
+  .dev-reticle { position: fixed; width: 0; height: 0; z-index: 1; }
+  .dev-reticle i { position: absolute; background: #e7d3af; }
+  .dev-tag { position: fixed; z-index: 1; font-size: 11px; line-height: 14px; color: rgba(239, 232, 218, 0.62); text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+</style>
+</head>
+<body>
+<img id="bg" alt="">
+<!-- Dev page (never shipped). Mounts the real #app of src/index.html over a rendered sky frame and drives one
+     screen state from ?state=… (see STATES). tools/dev/shell.mjs screenshots every state at 360×640, 390×844,
+     430×932 and 1440×900 and checks overflow, slot overlaps and contrast. ?st=&sb= emulate safe areas. -->
+<script type="module">
+const qs = new URLSearchParams(location.search);
+const html = await (await fetch('../index.html')).text();
+const doc = new DOMParser().parseFromString(html, 'text/html');
+document.body.appendChild(document.importNode(doc.getElementById('app'), true));
+const root = document.documentElement;
+if (qs.has('st')) root.style.setProperty('--st', `${qs.get('st')}px`);
+if (qs.has('sb')) root.style.setProperty('--sb', `${qs.get('sb')}px`);
+
+const { Chrome } = await import('../js/chrome.js');
+const { Form } = await import('../js/form.js');
+const { Ruler } = await import('../js/ruler.js');
+const { T, fmtWhen, fmtTime } = await import('../js/copy.js');
+const ui = await import('../js/ui.js');
+const share = await import('../js/share.js');
+
+const W = innerWidth, H = innerHeight;
+const sizeKey = [[390, 844], [360, 640], [430, 932], [1440, 900]].find(([w, h]) => w === W && h === H)?.join('x') || '390x844';
+const bg = document.getElementById('bg');
+const setBg = (name) => new Promise((r) => { bg.onload = r; bg.onerror = r; bg.src = `/bg/${name}-${sizeKey}.jpg`; });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+try { localStorage.clear(); } catch {}
+if (qs.get('touched') === '1') localStorage.setItem('birthsky:touchedSky', '1');
+
+const app = { citiesUrl: '/data/cities.json', audio: { bell: (...a) => { (window.__bells ||= []).push(a); } } };
+const c = new Chrome(app);
+app.chrome = c;
+const form = new Form(app);
+const ruler = new Ruler(app);
+window.shell = { c, form, ruler, app, T, ui, share };
+
+const P = { name: '小明', date: '1998-07-14', time: '22:00', unknownTime: false, city: { name: '杭州', region: '浙江', lat: 30.29, lon: 120.16, tz: 'Asia/Shanghai' } };
+const Q = { name: '小红', date: '2000-01-02', time: '06:10', unknownTime: false, city: { name: '成都', region: '四川', lat: 30.66, lon: 104.07, tz: 'Asia/Shanghai' } };
+const BIRTH = new Date('1998-07-14T14:00:00Z');
+const NOW = new Date('2026-09-30T12:00:00Z');
+const HERO = T.hero.lightAfter('你', '织女星', 2001, 3);
+const PEEK = '亏凸月 · 农历闰五月廿一 · 小暑 · 4,267 颗星';
+const ROWS = [
+  { key: 'light', label: '光年', text: HERO, meta: '织女星 · 天琴座 · 25 光年', action: '在天上看', target: { type: 'star', index: 1 } },
+  { key: 'moon', label: '月亮', text: T.night.moonUp('亏凸月', 73, '东南'), meta: '农历闰五月廿一 · 戊寅虎年', action: '在天上看', target: { type: 'body', id: 'Moon' } },
+  { key: 'zenith', label: '头顶', text: '离你头顶最近的亮星，是武仙座的天纪二。', meta: '偏离天顶 10.4° · 距离地球 35 光年', action: '在天上看', target: { type: 'star', index: 2 } },
+  { key: 'planets', label: '行星', text: '火星在西南方，木星在东方。', meta: '火星 −1.2 等 · 木星 −2.1 等', action: '在天上看', target: { type: 'body', id: 'Mars' } },
+  { key: 'count', label: '星数', text: T.night.count('4,267'), meta: 'HYG 星表 · 亮于 6.5 等', action: '' },
+  { key: 'term', label: '节气', text: T.night.term('小暑', 7), meta: '农历闰五月廿一', action: '' },
+];
+const POEM = { lines: ['星垂平野阔，月涌大江流。'], attribution: '杜甫《旅夜书怀》', regional: false, place: '', count: '遇见这一句的，还有 1,233 人。' };
+const STRIP = { name: '大角星', latin: 'Arcturus', meta: '牧夫座 · 0.0 等 · 37 光年',
+  story: `北半球春夜最亮的星。顺着北斗斗柄的弧线往外走，就会遇见这颗橙色的星。${T.strip.lightBefore(1989, '你', 9)}` };
+
+function sky({ meta = fmtWhen(P), time = fmtTime(P) } = {}) {
+  c.scene('sky');
+  c.meta(meta, time);
+  c.summary(PEEK);
+  c.actions('own');
+  c.toggles({ culture: 'cn', sound: true, gyro: false });
+}
+function reticle(x, y) {
+  const r = document.createElement('div');
+  r.className = 'dev-reticle';
+  r.style.left = `${x}px`; r.style.top = `${y}px`;
+  r.innerHTML = '<i style="left:-0.5px;top:-14px;width:1px;height:5px"></i><i style="left:-0.5px;top:9px;width:1px;height:5px"></i><i style="left:-14px;top:-0.5px;width:5px;height:1px"></i><i style="left:9px;top:-0.5px;width:5px;height:1px"></i>';
+  document.body.appendChild(r);
+}
+async function spin(toU, ms = 900) {
+  const D = 4.37 * 86164090.5;
+  c.rewindStart({ from: NOW, to: BIRTH, tz: 'Asia/Shanghai', sub: T.rewind.ago(BIRTH, NOW), place: T.rewind.place(P), skippable: true });
+  const B = (await import('../js/camera.js')).ease.bezier(0.55, 0, 0.12, 1);
+  const t0 = performance.now();
+  await new Promise((done) => {
+    const f = () => {
+      const u = Math.min(toU, (performance.now() - t0) / ms * toU);
+      c.rewindFrame(new Date(BIRTH.getTime() + (1 - B(u)) * D), u);
+      if (u < toU) requestAnimationFrame(f); else done();
+    };
+    f();
+  });
+}
+
+const STATES = {
+  async blank() {},
+  async intro() { await setBg('intro'); c.intro({ immediate: true }); c.introProgress(0.62); },
+  async 'intro-ready'() { await setBg('intro'); c.intro({ immediate: true }); c.introProgress(1); c.introReady(T.intro.start); },
+  async 'intro-timed'() { await setBg('intro'); c.intro(); c.introProgress(0.3); },
+  async 'intro-person'() { await setBg('intro'); c.intro({ lede: T.link.person(P), primary: T.link.personGo, immediate: true }); c.introReady(T.link.personGo); },
+  async 'intro-invite'() { await setBg('intro'); c.intro({ lede: T.link.invite(P), primary: T.link.inviteUse, secondary: T.link.inviteOther, immediate: true }); c.introReady(T.link.inviteUse); },
+  async 'intro-result'() { await setBg('intro'); c.intro({ lede: T.link.result(P, Q), primary: T.link.resultGo, immediate: true }); c.introReady(T.link.resultGo); },
+  async 'intro-failed'() { await setBg('intro'); c.intro({ immediate: true }); c.introFailed(); },
+  async form() { await setBg('form'); form.open('self', { delay: 0 }); },
+  async 'form-filled'() {
+    await setBg('form'); form.open('self', { delay: 0, me: { ...P, city: null } });
+    await wait(700); form.submit();
+  },
+  async 'form-invite'() { await setBg('form'); form.open('hepan-self', { delay: 0, inviter: P }); },
+  async 'form-confirm'() { await setBg('form'); form.open('hepan-confirm', { delay: 0, inviter: Q, me: P }); },
+  async 'form-partner'() { await setBg('form'); form.open('partner', { delay: 0 }); },
+  async city() { await setBg('form'); form.open('self', { delay: 0 }); await wait(300); form.openCity(); },
+  async 'city-search'() {
+    await setBg('form'); form.open('self', { delay: 0 }); await wait(300); form.openCity();
+    const q = document.getElementById('city-q');
+    for (let i = 0; i < 100 && !(app.cities?.citiesReady?.()); i++) await wait(100);
+    q.value = '杭'; q.dispatchEvent(new Event('input'));
+  },
+  async 'city-none'() {
+    await setBg('form'); form.open('self', { delay: 0 }); await wait(300); form.openCity();
+    for (let i = 0; i < 100 && !(app.cities?.citiesReady?.()); i++) await wait(100);
+    const q = document.getElementById('city-q'); q.value = 'zzzzqx'; q.dispatchEvent(new Event('input'));
+  },
+  async rewind() { await setBg('rewind'); await spin(0.42); },
+  async 'rewind-late'() { await setBg('rewind'); await spin(0.8, 1200); },
+  async arrival() { await setBg('stand'); await spin(1, 600); c.arrive({ sub: T.arrive.sub(P), title: T.arrive.titleOwn }); await wait(2700); },
+  async 'arrival-guest'() { await setBg('stand'); await spin(1, 600); c.arrive({ sub: T.arrive.sub(P), title: T.arrive.titleGuest(P.name), guest: true }); await wait(2700); },
+  async landed() {
+    await setBg('stand'); await spin(1, 600); c.arrive({ sub: T.arrive.sub(P), title: T.arrive.titleOwn }); await wait(2600);
+    c.summary(PEEK); c.actions('own'); c.toggles({ culture: 'cn', sound: true, gyro: false });
+    await c.land({ meta: fmtWhen(P), time: fmtTime(P) });
+    await wait(400); c.caption(HERO, { key: 'light', enter: true }); reticle(W / 2, H * 0.40);
+    await wait(600); c.showChrome({ first: true });
+  },
+  async rest() { await setBg('stand'); sky(); },
+  async chrome() { await setBg('stand'); sky(); c.caption(HERO, { key: 'light' }); reticle(W / 2, H * 0.40); c.showChrome({ first: true }); },
+  async 'chrome-day'() {
+    await setBg('stand'); sky();
+    c.caption(T.hero.day('你', '东南'), { key: 'day', acts: [{ key: 'hide', label: T.hero.hideSun }, { key: 'night', label: T.hero.nightOf }] });
+    c.showChrome();
+  },
+  async 'chrome-poem'() {
+    await setBg('stand'); sky();
+    c.caption(`我寄愁心与明月，随风直到夜郎西。\n${T.tour.poemPlace('你', '杭州')}`, { key: 'poem' });
+    c.showChrome();
+  },
+  async hint() { await setBg('stand'); sky(); c.caption(HERO); c.showChrome(); await wait(200); ui.hint(null, T.hint.look, { hold: true }); },
+  async idle() { await setBg('stand'); sky(); c.caption(HERO); c.showChrome(); await wait(600); c.hideChrome('idle'); },
+  async strip() { await setBg('stand'); sky(); c.caption(HERO); c.showChrome(); await wait(300); c.strip(STRIP); reticle(W * 0.62, H * 0.3); },
+  async night() {
+    await setBg('dim'); sky(); c.showChrome();
+    c.openNight({ meta: fmtWhen(P), rows: ROWS, note: '', poem: POEM });
+  },
+  async 'night-scrolled'() {
+    await setBg('dim'); sky(); c.showChrome();
+    c.openNight({ meta: fmtWhen(P), rows: ROWS, note: T.night.unknownTime, poem: { ...POEM, regional: true, place: '杭州' } });
+    await wait(700); const b = document.getElementById('night-body'); b.scrollTop = b.scrollHeight;
+  },
+  async about() { await setBg('dim'); c.intro({ immediate: true }); c.introReady(); await wait(200); c.openAbout(); },
+  async ruler() {
+    await setBg('stand'); sky();
+    ruler.open({ birth: BIRTH, tz: 'Asia/Shanghai', lat: 30.29, lon: 120.16, at: new Date(BIRTH.getTime() + 100 * 60000) });
+    let last = performance.now();
+    const loop = (t) => { ruler.step((t - last) / 1000); last = t; if (ruler.isOpen) requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  },
+  async 'ruler-dawn'() {
+    await setBg('stand'); sky();
+    ruler.open({ birth: BIRTH, tz: 'Asia/Shanghai', lat: 30.29, lon: 120.16, at: new Date(BIRTH.getTime() + 320 * 60000) });
+  },
+  async listen() { await setBg('listen'); sky(); c.showChrome(); c.listen(true); ui.hint(null, T.hint.listen, { hold: true }); },
+  async keep() {
+    await setBg('keep');
+    const r = c.keepFrame('wallpaper');
+    c.scene('keep');
+    const sc = Math.max(r.w / W, r.h / H);
+    bg.style.transform = `translate(${r.x + r.w / 2 - W * sc / 2}px,${r.y + r.h / 2 - H * sc / 2}px) scale(${sc})`;
+    document.getElementById('kf-note').textContent = T.keep.note('杜甫《旅夜书怀》', '遇见这一句的，还有 1,233 人。');
+    document.getElementById('kf-text').innerHTML = '<div class="kt-wall"><p class="kt-poem">星垂平野阔，</p><p class="kt-poem">月涌大江流。</p><p class="kt-attr">杜甫《旅夜书怀》</p><p class="kt-date"><span class="kt-num">1998.07.14</span>　杭州</p></div>';
+    document.getElementById('kf-sentence').placeholder = '星垂平野阔，月涌大江流。';
+    document.getElementById('kf-res').textContent = W >= 960 ? '1290 × 2796（iPhone）' : `${Math.round(W * 3)} × ${Math.round(H * 3)}`;
+    await c.layer('keep', true);
+  },
+  async 'keep-card'() {
+    await setBg('keep');
+    const r = c.keepFrame('card');
+    c.scene('keep');
+    const k = document.getElementById('keep');
+    k.dataset.qr = 'on';
+    const s = W >= 960 ? r.h / H * 1.4 : r.w / W;
+    bg.style.transform = `translate(${r.x + r.w / 2 - W * s / 2}px,${r.y + r.h / 2 - H * s / 2}px) scale(${s})`;
+    document.querySelectorAll('.kf-styles [data-style="paper"]').forEach((b) => { b.hidden = false; });
+    document.getElementById('kf-qr-t').hidden = false;
+    document.getElementById('kf-poem').textContent = T.keep.lineNext;
+    document.getElementById('kf-textmode').textContent = T.keep.textModes.full;
+    document.getElementById('kf-sentence').maxLength = 24;
+    document.getElementById('kf-sentence').placeholder = T.keep.sentence('织女星', 2001);
+    document.getElementById('kf-note').textContent = T.keep.noteOriginal;
+    document.getElementById('kf-text').innerHTML = `<div class="kt-card"><p class="c1">1998.07.14  22:00</p><p class="c2">${T.export.cardPlace(P)}</p><p class="c3">${HERO.replace('\n', '<br>')}</p></div>`;
+    document.getElementById('kf-res').textContent = '1080 × 1440';
+    for (const t of document.querySelectorAll('.kf-tab')) t.classList.toggle('is-active', t.dataset.format === 'card');
+    await c.layer('keep', true);
+  },
+  async result() {
+    await setBg('stand');
+    c.scene('result');
+    const img = document.getElementById('keep-img');
+    img.src = `/bg/keep-390x844.jpg`;
+    document.getElementById('kr-tip').textContent = T.result.wxWallpaper;
+    document.getElementById('kr-how').textContent = T.result.wxWallpaperIOS;
+    await c.layer('keep-result', true);
+    img.classList.add('on');
+  },
+  async 'result-card'() {
+    await setBg('stand');
+    c.scene('result');
+    const img = document.getElementById('keep-img');
+    const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1440;
+    const g = cv.getContext('2d'); const im = new Image(); im.src = '/bg/keep-390x844.jpg'; await im.decode();
+    g.drawImage(im, 0, (1440 - 1080 * im.height / im.width) / 2, 1080, 1080 * im.height / im.width);
+    img.src = cv.toDataURL('image/jpeg', 0.9);
+    document.getElementById('kr-tip').textContent = T.result.wxCard;
+    document.getElementById('kr-how').textContent = '';
+    await c.layer('keep-result', true);
+    img.classList.add('on');
+  },
+  async 'pair-invite'() { await setBg('invite'); sky(); c.showChrome(); await wait(100); c.pairInvite(true); },
+  async pair() {
+    await setBg('pair');
+    const line = document.createElement('div'); line.className = 'dev-hline'; line.style.top = `${H * 0.34}px`; line.innerHTML = '<span>小红的地平线</span>';
+    document.body.appendChild(line);
+    c.actions('pair-own');
+    c.pairText({
+      where: '小明的天空 · 杭州', switchLabel: '看小红的天空',
+      dates: ['小明　1998 年 7 月 14 日 22:00 · 杭州', '小红　2000 年 1 月 2 日 06:10 · 成都'],
+      headline: T.pair.headline('3,316'), count: 3316,
+      lines: [T.pair.brightest(['大角星', '织女星', '牛郎星', '角宿一']), T.pair.vegaAltairBoth, T.pair.moons('小明', '亏凸月', '小红', '残月'), T.pair.apart('1,541', '568')],
+      definition: '重合度 64%：两人出生时都在地平线之上的肉眼可见恒星（3,316 颗），占至少一人能看见的恒星（5,181 颗）的比例。',
+      animate: qs.get('animate') === '1',
+    });
+  },
+  async guest() {
+    await setBg('stand');
+    sky({ meta: fmtWhen(P, { name: true }) });
+    c.actions('guest');
+    c.guestInvite(P.name);
+    c.showChrome();
+  },
+  async share() { await setBg('stand'); sky(); c.caption(HERO); c.showChrome(); await wait(200); share.showWeChatGuide(T.share.guide('own')); },
+  async toast() { await setBg('stand'); sky(); c.toggles({ culture: 'iau', sound: false, gyro: true }); c.showChrome(); await wait(100); ui.toast(T.chrome.cultureToast.iau, 30000); },
+  async fallback() { await setBg('stand'); c.fallback('webgl'); },
+};
+
+const state = qs.get('state') || 'chrome';
+if (!STATES[state]) throw new Error(`unknown state ${state}`);
+window.shellStates = Object.keys(STATES);
+await document.fonts.ready;
+await STATES[state]();
+await wait(+(qs.get('settle') || 1400));
+window.shellReady = true;
+</script>
+</body>
+</html>

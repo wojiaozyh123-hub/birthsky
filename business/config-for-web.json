@@ -1,0 +1,20 @@
+{
+  "price": "19.9",
+  "shopUrl": "",
+  "contact": "",
+  "email": "wojiaozyh123@gmail.com",
+  "printEnabled": false,
+  "sponsor": {
+    "enabled": true,
+    "tag": "合作",
+    "title": "赞助与合作",
+    "text": "wojiaozyh123@gmail.com",
+    "url": "mailto:wojiaozyh123@gmail.com"
+  },
+  "tip": {
+    "enabled": true,
+    "image": "business/assets/tip-qr.png",
+    "line": "喜欢这片星空，可以请我们喝杯咖啡",
+    "hint": "长按识别，随意就好"
+  }
+}

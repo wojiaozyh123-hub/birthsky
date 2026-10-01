@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>export · dev</title>
+<link rel="icon" href="data:,">
+<!-- Dev page (not shipped): drives PosterStudio (src/js/poster.js) for tools/dev/export-test.mjs.
+     window.exportCase(cfg) renders one export; window.qrCheck(dataUrl, url, scale, q) re-encodes and decodes it. -->
+<script type="importmap">{"imports":{"astronomy-engine":"/node_modules/astronomy-engine/esm/astronomy.js","qrcode-generator":"/node_modules/qrcode-generator/dist/qrcode.mjs"}}</script>
+<script src="/node_modules/jsqr/dist/jsQR.js"></script>
+<style>
+  @font-face { font-family: "Nawan Serif"; font-style: normal; font-weight: 400; font-display: block; src: url(../assets/fonts/nawan-serif-400.woff2) format("woff2"); }
+  @font-face { font-family: "Cormorant Lining"; font-style: normal; font-weight: 500; font-display: swap; src: url(../assets/fonts/cormorant-lining-500.woff2) format("woff2"); }
+  html, body { margin: 0; background: #030407; color: #EFE8DA; font: 12px -apple-system, "PingFang SC", sans-serif; }
+</style>
+</head>
+<body>
+<script type="module">
+import { PosterStudio, exportSize, exportFraming, groundScrimFor, clockNudge, DESKTOP_SIZES, PAPER_WINDOW } from '../js/poster.js';
+import { loadCatalog } from '../js/catalog.js';
+import { skyState, zonedToUtc, altAz, mul, radec } from '../js/astro.js';
+import { computeFacts, chooseHero, lightStarSentence, lightStarShort } from '../js/facts.js';
+import { computeHepan } from '../js/hepan.js';
+import { encodePerson } from '../js/share.js';
+import { poemForPerson, POEMS } from '../js/poems.js';
+
+const catalog = await loadCatalog('/data/', '');
+await catalog.deepReady;
+const studio = new PosterStudio(catalog);
+const SITE = 'https://wojiaozyh123-hub.github.io/birthsky/';
+
+const city = (name, region, lat, lon, tz) => ({ name, region, lat, lon, tz });
+const PEOPLE = {
+  // the Milky Way core up (spec examples)
+  xm: { name: '小明', date: '1998-07-14', time: '22:00', unknownTime: false, city: city('杭州', '浙江', 30.29, 120.16, 'Asia/Shanghai') },
+  // born in daylight
+  day: { name: '小雨', date: '2003-03-15', time: '14:30', unknownTime: false, city: city('成都', '四川', 30.66, 104.07, 'Asia/Chongqing') },
+  // the pair partner (spec example)
+  xh: { name: '小红', date: '2000-01-02', time: '06:10', unknownTime: false, city: city('成都', '四川', 30.66, 104.07, 'Asia/Shanghai') },
+  // Sirius high in the south (2D halo fallback test)
+  sirius: { name: '阿远', date: '2005-02-01', time: '21:00', unknownTime: false, city: city('北京', '', 39.90, 116.40, 'Asia/Shanghai') },
+  // unknown time, no name
+  anon: { name: '', date: '1991-11-03', time: '22:00', unknownTime: true, city: city('北京', '', 39.90, 116.40, 'Asia/Shanghai') },
+};
+const momentOf = (p) => {
+  const [y, m, d] = p.date.split('-').map(Number);
+  const [hh, mm] = p.time.split(':').map(Number);
+  return zonedToUtc(y, m, d, hh, mm, p.city.tz);
+};
+
+window.personInfo = (key) => {
+  const p = PEOPLE[key];
+  const sky = skyState(momentOf(p), p.city.lat, p.city.lon);
+  const facts = computeFacts(catalog, p, momentOf(p), sky);
+  const hero = chooseHero(catalog, sky, facts);
+  return { hero: { kind: hero.kind, az: hero.az, alt: hero.alt }, sun: sky.sun.alt, light: lightStarSentence(facts), short: lightStarShort(facts),
+    poem: poemForPerson(p).poem, url: SITE + '?p=' + encodePerson(p) };
+};
+
+window.exportCase = async (cfg) => {
+  const pairMode = !!cfg.pair;
+  const p = PEOPLE[cfg.person || 'xm'];
+  let pair = null, sky, facts, hero;
+  if (pairMode) {
+    pair = computeHepan(catalog, PEOPLE[cfg.pair[0]], PEOPLE[cfg.pair[1]], momentOf);
+  } else {
+    sky = skyState(momentOf(p), p.city.lat, p.city.lon);
+    facts = computeFacts(catalog, p, momentOf(p), sky);
+    hero = chooseHero(catalog, sky, facts, cfg.subjectName || '你');
+  }
+  const size = cfg.size || exportSize(cfg.format, { screenW: cfg.screenW || 393, screenH: cfg.screenH || 852, dpr: cfg.dpr || 3, desktop: cfg.desktop, preset: cfg.preset });
+  let view;
+  if (cfg.view) view = cfg.view;
+  else if (pairMode) {
+    const az0 = pair.targets.length ? altAz(pair.targets[0].n).az : 180;
+    view = exportFraming(cfg.format, az0, { pair: true, style: cfg.style, W: size.W, H: size.H, targets: pair.targets, zB: pair.zB, nearlySame: pair.nearlySame });
+  } else view = exportFraming(cfg.format, hero.az, { style: cfg.style, W: size.W, H: size.H });
+  if (cfg.dAlt) view = { ...view, alt: view.alt + cfg.dAlt };
+  if (cfg.nudge && !pairMode) {
+    const nud = clockNudge(view, sky, size);
+    if (nud) view = nud;
+  }
+  if (cfg.release) studio.release();
+  if (cfg.maxPoint) studio.sky().maxPoint = cfg.maxPoint; // pretend a GPU with a small ALIASED_POINT_SIZE_RANGE
+  studio.maxTile = cfg.maxTile || null;
+  studio.debugState = cfg.debugState || null;
+  const url = pairMode ? SITE + '?h=' + encodePerson(pair.a) + '&b=' + encodePerson(pair.b) : SITE + '?p=' + encodePerson(p);
+  const t = performance.now();
+  const res = await studio.render({
+    format: cfg.format, style: cfg.style, textMode: cfg.textMode, lines: !!cfg.lines, culture: cfg.culture || 'cn',
+    qr: cfg.qr !== false, sentence: cfg.sentence, poem: cfg.poem, view, size, screenCSSW: cfg.screenCSSW || 393,
+    person: p, sky, facts, subjectName: cfg.subjectName, pair, url, dayMask: cfg.dayMask ?? 1, terrainH: cfg.terrainH,
+    poemFont: cfg.poemFont,
+  });
+  if (cfg.maxPoint) studio.release(); // back to the GPU's own limit next time
+  const out = { dataUrl: res.dataUrl, W: res.W, H: res.H, fallback: res.fallback, groundScrim: res.groundScrim, ms: res.ms,
+    qr: res.qr && { url: res.qr.url, version: res.qr.version, modules: res.qr.modules, size: res.qr.size }, url, view,
+    hero: hero && { kind: hero.kind, az: hero.az, alt: hero.alt }, wall: performance.now() - t };
+  if (cfg.keep) window.lastCanvas = res.canvas;
+  return out;
+};
+
+const loadImage = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+
+/** The viewfinder preview: previewText() draws only the text + QR layer, here into a 0.3× canvas. */
+window.previewCase = async (cfg) => {
+  const p = PEOPLE[cfg.person || 'xm'];
+  const size = cfg.format === 'card' ? { W: 1080, H: 1440 } : { W: 1179, H: 2556 };
+  const k = 0.3;
+  const c = document.createElement('canvas');
+  c.width = Math.round(size.W * k); c.height = Math.round(size.H * k);
+  const x = c.getContext('2d');
+  x.fillStyle = '#030407'; x.fillRect(0, 0, c.width, c.height);
+  x.setTransform(k, 0, 0, k, 0, 0);
+  const qr = await studio.previewText(x, { ...cfg, person: p, size, url: SITE + '?p=' + encodePerson(p), screenCSSW: 393 });
+  return { url: c.toDataURL('image/png'), qr: qr && { size: qr.size, modules: qr.modules } };
+};
+
+/** Re-encode (scale, JPEG quality) as a chat app would, then decode the QR with jsQR from the whole image. */
+window.qrCheck = async (dataUrl, expect, scale = 0.5, q = 0.8) => {
+  const img = await loadImage(dataUrl);
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+  const x = c.getContext('2d');
+  x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+  x.drawImage(img, 0, 0, c.width, c.height);
+  const jpg = c.toDataURL('image/jpeg', q);
+  const img2 = await loadImage(jpg);
+  const c2 = document.createElement('canvas');
+  c2.width = img2.width; c2.height = img2.height;
+  const x2 = c2.getContext('2d');
+  x2.drawImage(img2, 0, 0);
+  const d = x2.getImageData(0, 0, c2.width, c2.height);
+  const code = window.jsQR(d.data, d.width, d.height, { inversionAttempts: 'attemptBoth' });
+  return { ok: !!code && code.data === expect, data: code?.data || null, w: d.width, h: d.height, bytes: jpg.length };
+};
+
+/** A PNG crop of an export at full resolution (for looking at text closely). */
+window.crop = async (dataUrl, x, y, w, h, scale = 1) => {
+  const img = await loadImage(dataUrl);
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+  c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, c.width, c.height);
+  return c.toDataURL('image/png');
+};
+
+/** Max absolute channel difference between two images (tiling check). */
+window.diff = async (a, b) => {
+  const [ia, ib] = await Promise.all([loadImage(a), loadImage(b)]);
+  const get = (i) => { const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const x = c.getContext('2d'); x.drawImage(i, 0, 0); return x.getImageData(0, 0, i.width, i.height).data; };
+  const da = get(ia), db = get(ib);
+  let max = 0, sum = 0;
+  const rows = new Map();
+  for (let k = 0; k < da.length; k += 4) for (let j = 0; j < 3; j++) {
+    const v = Math.abs(da[k + j] - db[k + j]);
+    if (v > max) max = v;
+    sum += v;
+    if (v > 2) { const y = Math.floor(k / 4 / ia.width); rows.set(y, (rows.get(y) || 0) + 1); }
+  }
+  return { max, mean: sum / (da.length * 0.75), rows: [...rows].slice(0, 40) };
+};
+
+window.helpers = {
+  sizes: () => ({
+    i15: exportSize('wallpaper', { screenW: 393, screenH: 852, dpr: 3 }),
+    i15pm: exportSize('wallpaper', { screenW: 430, screenH: 932, dpr: 3 }),
+    i14: exportSize('wallpaper', { screenW: 390, screenH: 844, dpr: 3 }),
+    a360: exportSize('wallpaper', { screenW: 360, screenH: 800, dpr: 3 }),
+    a780: exportSize('wallpaper', { screenW: 360, screenH: 780, dpr: 3 }),
+    low: exportSize('wallpaper', { screenW: 360, screenH: 640, dpr: 2 }),
+    land: exportSize('wallpaper', { screenW: 844, screenH: 390, dpr: 3 }),
+    tall: exportSize('wallpaper', { screenW: 412, screenH: 1100, dpr: 3.5 }),
+    desk: [0, 1, 2, 3].map((preset) => exportSize('wallpaper', { desktop: true, preset })),
+    card: exportSize('card', {}),
+  }),
+  framing: () => ({
+    wall: exportFraming('wallpaper', 200), card: exportFraming('card', 200), pair: exportFraming('card', 200, { pair: true }),
+    paper: exportFraming('card', 200, { style: 'paper' }), desk: exportFraming('wallpaper', 200, { W: 2880, H: 1800 }),
+  }),
+  scrim: () => [0, 2, 4, 6, 8, 10, 14].map((d) => {
+    const v = exportFraming('wallpaper', 200);
+    return [d, groundScrimFor('wallpaper', { ...v, alt: v.alt + d }, {})];
+  }),
+  nudge: (key) => {
+    const p = PEOPLE[key];
+    const sky = skyState(momentOf(p), p.city.lat, p.city.lon);
+    const v = exportFraming('wallpaper', sky.moon.az);
+    // near the zone's lower-right edge (the Moon at ~0.31H, right of centre): a small turn clears it
+    const edge = { ...v, az: sky.moon.az - 6, alt: sky.moon.alt - 17.7 };
+    // in the middle of the zone (0.22H, centred): nothing within ±10° / ±6° clears it → null
+    const mid = { ...v, alt: sky.moon.alt - 25.2 };
+    return { moon: { alt: sky.moon.alt, az: sky.moon.az }, edge, nudge: clockNudge(edge, sky, { W: 1179, H: 2556 }), mid: clockNudge(mid, sky, { W: 1179, H: 2556 }) };
+  },
+  paperWindow: () => PAPER_WINDOW,
+  desktopSizes: () => DESKTOP_SIZES,
+};
+/** Contact sheet (review aid): images side by side at a fixed height, each labelled underneath. */
+window.sheet = async (items, h = 720) => {
+  const imgs = await Promise.all(items.map((it) => loadImage(it.url)));
+  const ws = imgs.map((i) => Math.round(i.width * h / i.height));
+  const pad = 16, lab = 28;
+  const c = document.createElement('canvas');
+  c.width = ws.reduce((a, b) => a + b + pad, pad); c.height = h + lab + pad * 2;
+  const x = c.getContext('2d');
+  x.fillStyle = '#777'; x.fillRect(0, 0, c.width, c.height);
+  let cx = pad;
+  imgs.forEach((img, k) => {
+    x.drawImage(img, cx, pad, ws[k], h);
+    x.fillStyle = '#fff'; x.font = '15px -apple-system, sans-serif'; x.fillText(items[k].name, cx, pad + h + 20);
+    cx += ws[k] + pad;
+  });
+  return c.toDataURL('image/jpeg', 0.9);
+};
+window.exportReady = true;
+</script>
+</body>
+</html>

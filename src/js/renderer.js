@@ -2,7 +2,15 @@
 // star grain when the view is magnified), stars, deep stars and star dust (additive point sprites with
 // a photographic profile), and a long-exposure buffer for star trails (drawn as exact motion-blurred
 // streaks, so they stay continuous at any speed, framing or frame rate).
+// Every pass projects through the one camera of camera.js (spec §3.1, the CAMERA chunk below).
 // GLSL ES 1.00 so it runs on WebGL1 and WebGL2.
+//
+// Public API: new SkyRenderer(canvas, catalog, {preserve}), resize(cssW, cssH, dpr), render(s),
+// setTileOffset(dx, dy), dispose(); GLSL_CAMERA / GLSL_TERRAIN / GLSL_PHOTOMETRY (shader chunks, for tests
+// and exports).
+// render(s) fields: cam, M, time, sun, moon, moonIllum, twilight, day, reveal, mwAmt, starGain, dustGain,
+// sizeGain, crisp, sel, twinkle, terrainH, bg, exposure, dither, vignette, listenAz (deg), listenOn,
+// zB, sharedDim, sharedT, trail {on, fade, opacity, Ms, clear, gain}.
 import { mulberry32 } from './catalog.js';
 
 const PREC = `
@@ -13,20 +21,31 @@ precision mediump float;
 #endif
 `;
 
-// skyline: a low ring of distant hills, periodic in azimuth. Must match between sky and star passes.
+// Skyline: two ridge layers periodic in azimuth. Must match between the sky and star passes, and
+// camera.js ports it exactly (terrainAtRad), so it is written to be deterministic in float32 on every
+// GPU: an arithmetic hash on small exact integers (no sin-hash, whose value depends on the GPU's sin
+// precision at large arguments) and an exact wrap instead of mod() (whose division may round).
 const TERRAIN = `
 uniform float uTerrainH;
-float th1(float n) { return fract(sin(n * 12.9898 + 4.1) * 43758.5453); }
+float th1(float n) {
+  float p = fract((n + 7.0) * 0.1031); // + 7: cell 0 must not hash to 0 (it sits due south)
+  p *= p + 33.33;
+  p *= p + p;
+  return fract(p);
+}
+float twrap(float i, float P) { return i - P * step(P - 0.5, i); }
 float tpn(float x, float P) {
   float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f);
-  return mix(th1(mod(i, P)), th1(mod(i + 1.0, P)), f);
+  float a = th1(twrap(i, P));
+  float b = th1(twrap(i + 1.0, P));
+  return a + (b - a) * f;
 }
 // stands of trees along the near ridge: rows of rounded crowns of uneven height, only in some
 // stretches, so the skyline has a human scale without turning into a fence
 float crown(float x, float P, float s) {
   float c = floor(x);
   float u = fract(x) * 2.0 - 1.0;
-  float r = th1(mod(c, P) + s);
+  float r = th1(twrap(c, P) + s);
   return sqrt(max(0.0, 1.0 - u * u)) * step(0.22, r) * (0.3 + 0.7 * r);
 }
 float trees(float t) {
@@ -37,28 +56,50 @@ float trees(float t) {
   return k * stand;
 }
 float ridgeNear(float az) {
-  if (uTerrainH <= 0.0) return 0.0; // whole-sky charts and posters: a clean horizon circle
-  float t = az / 6.2831853 + 0.5;
+  if (uTerrainH <= 0.0) return 0.0; // a clean mathematical horizon
+  float t = az * 0.15915494 + 0.5;
   float h = 0.55 * tpn(t * 9.0, 9.0) + 0.3 * tpn(t * 23.0, 23.0) + 0.15 * tpn(t * 61.0, 61.0);
   return uTerrainH * (h * h * 1.7 - 0.12 + 0.13 * trees(t));
 }
 float ridgeFar(float az) {
   if (uTerrainH <= 0.0) return 0.0;
-  float t = az / 6.2831853 + 0.5;
+  float t = az * 0.15915494 + 0.5;
   float h = 0.6 * tpn(t * 5.0 + 0.37, 5.0) + 0.4 * tpn(t * 17.0 + 0.11, 17.0);
   return uTerrainH * (h * h * 2.3 - 0.05);
 }
 float terrain(float az) { return max(ridgeNear(az), ridgeFar(az)); }
 `;
 
+// The projection (spec §3.1): r = S(1+P)·sinθ/(P+cosθ) about the view centre, and its closed-form
+// inverse. uCenter/uScale are in device px with GL's y-up; uR/uU/uF the camera basis in NEU.
 const CAMERA = `
 uniform vec2 uRes;
 uniform vec2 uCenter;
 uniform float uScale;
+uniform float uP;
 uniform vec3 uF;
 uniform vec3 uU;
 uniform vec3 uR;
+// NEU unit vector → device px; ok = 0 where the camera culls it (P + d < 0.05)
+vec2 proj(vec3 n, out float ok) {
+  float den = uP + dot(n, uF);
+  ok = step(0.05, den);
+  return uCenter + uScale * (1.0 + uP) / max(den, 0.05) * vec2(dot(n, uR), dot(n, uU));
+}
+// device px per radian (radial) at a direction with d = n·f
+float projScale(float d) {
+  float den = max(uP + d, 0.05);
+  return uScale * (1.0 + uP) * (1.0 + uP * d) / (den * den);
+}
+// device px → NEU unit vector; c = cos of the angle from the view centre
+vec3 unproj(vec2 frag, out float c) {
+  vec2 q = (frag - uCenter) / (uScale * (1.0 + uP));
+  float t2 = dot(q, q);
+  c = (-t2 * uP + sqrt(1.0 + t2 * (1.0 - uP * uP))) / (1.0 + t2);
+  return normalize(c * uF + (uP + c) * (q.x * uR + q.y * uU));
+}
 `;
+
 
 // Star photometry shared by the point and the streak shaders. Everything is in device pixels.
 //   pr     device px per CSS px of star (devicePixelRatio × sizeGain; posters/wallpapers pass sizeGain)
@@ -77,14 +118,25 @@ float starFlux(float m) { return exp2(-1.3287712 * (m - 6.0)); }
 float starNorm(float pr, float sigma) { return pow(0.27 * pr / sigma, 1.2); }
 float starCore(float F) { return pow(F, 0.61); }
 float starWing(float F) { return 0.03 * pow(F, 0.85); }
-// atmospheric extinction (mag) at height h (radians) above the skyline
-float extinction(float h) { return min(0.18 * (1.0 / max(sin(h + 0.02), 0.05) - 1.0), 2.6); }
+// atmospheric extinction (mag) at true altitude alt (radians): Kasten–Young airmass, 0.28 mag per
+// airmass, capped at 3.5 (spec §3.4)
+float extinction(float alt) {
+  float a = max(alt, 0.0); // below the horizon the cap has long been reached
+  float X = 1.0 / (sin(a) + 0.50572 * pow(6.07995 + a * 57.29578, -1.6364));
+  return min(0.28 * (X - 1.0), 3.5);
+}
+// extinction also warms the light a little near the horizon
+vec3 reddening(float ext) { return mix(vec3(1.0), vec3(1.0, 0.86, 0.68), clamp(ext / 3.5, 0.0, 1.0) * 0.55); }
 // hue of a star, a little richer than the catalogue's whisper and normalised to a max channel of 1
 vec3 starHue(vec3 c, float sat) {
   vec3 h = max(mix(vec3(dot(c, vec3(0.30, 0.59, 0.11))), c, sat), 0.0);
   return h / max(max(h.r, h.g), max(h.b, 1e-3));
 }
 `;
+
+export const GLSL_CAMERA = CAMERA;
+export const GLSL_TERRAIN = TERRAIN;
+export const GLSL_PHOTOMETRY = PHOTOMETRY;
 
 const FULLSCREEN_VS = `
 attribute vec2 aPos;
@@ -102,17 +154,25 @@ uniform float uDay;
 uniform float uTwilight;
 uniform float uMwAmt;
 uniform vec3 uBg;
-uniform float uDome;
 uniform float uExposure;
-uniform float uGrain;
-uniform float uFlash;
+uniform float uDither;
 uniform float uVignette;
+uniform vec2 uFrame;   // size of the whole frame, device px (tiles share one vignette)
 uniform float uStarGrain;
 uniform float uPr;
+uniform vec3 uZB;      // B's zenith in this sky's NEU (two skies), or 0
+uniform float uShared; // 0..1: how far the part of the sky below B's horizon has dimmed
 
 const vec3 G0 = vec3(-0.0548755604, -0.8734370902, -0.4838350155);
 const vec3 G1 = vec3(0.4941094279, -0.4448296300, 0.7469822445);
 const vec3 G2 = vec3(-0.8676661490, -0.1980763734, 0.4559837762);
+
+// night air (spec §2.2): near-neutral, #03050A overhead to #0B1015 at the horizon; airglow
+// rgba(64,96,84,.10)·exp(−alt/4°); the far ridge #07090D over the near ridge and ground (uBg)
+const vec3 SKY_ZENITH = vec3(0.01176, 0.01961, 0.03922);
+const vec3 SKY_HORIZON = vec3(0.04314, 0.06275, 0.08235);
+const vec3 AIRGLOW = vec3(0.25098, 0.37647, 0.32941);
+const vec3 FAR_LIFT = vec3(0.01569, 0.01961, 0.02353);
 
 // weight of a noise octave whose cells are 'cell' radians wide, seen at 'px' radians per pixel:
 // octaves finer than ~2 px fade to their mean, so nothing shimmers while the sky turns
@@ -140,26 +200,28 @@ float grainLayer(vec2 g, float cb, float cell, float dens, float pxAng, float s2
 #endif
 
 void main() {
-  vec2 p = (gl_FragCoord.xy - uCenter) / uScale;
-  float rho2 = dot(p, p);
-  vec3 v = normalize((4.0 * p.x * uR + 4.0 * p.y * uU + (4.0 - rho2) * uF) / (4.0 + rho2));
+  float c;
+  vec3 v = unproj(gl_FragCoord.xy, c);
   float alt = asin(clamp(v.z, -1.0, 1.0));
   float az = atan(v.y, v.x);
-  float pxAng = 4.0 / ((4.0 + rho2) * uScale);
+  float pc = uP + c;
+  float pxAng = pc * pc / (uScale * (1.0 + uP) * (1.0 + uP * c)); // radians per device px
   float nearTop = ridgeNear(az);
   float th = max(nearTop, ridgeFar(az)); // = terrain(az), sharing the near ridge with the ground below
   float skyMask = smoothstep(-pxAng, pxAng, alt - th);
   float h = clamp(alt / 1.5707963, 0.0, 1.0);
   float a0 = max(alt, 0.0);
 
-  // Night air: a deep blue-black overhead (never a dead 0), lighter toward the horizon where we look
-  // through more of the airglow layer; a faint green-teal airglow band a few degrees up, and a pale,
-  // slightly warm light dome right on the skyline. On a whole-sky chart that makes a soft bright limb.
-  vec3 col = vec3(0.011, 0.014, 0.028) + vec3(0.019, 0.025, 0.042) * exp(-a0 * 2.4);
-  float band = a0 / 0.12 * exp(1.0 - a0 / 0.12);
-  col += vec3(0.005, 0.015, 0.011) * band;
-  col += vec3(0.034, 0.030, 0.026) * exp(-a0 * 14.0);
-  col += vec3(0.013, 0.018, 0.034) * exp(-a0 * 5.0) * uDome;
+  // Night air brightens toward the horizon as we look through more of the airglow layer (van Rhijn:
+  // 1/sqrt(1 − 0.9695·cos²alt), normalised so the horizon is exactly SKY_HORIZON), plus the faint
+  // grey-green airglow band in the lowest few degrees.
+  float ca = cos(a0);
+  float vr = (inversesqrt(max(1.0 - 0.9695 * ca * ca, 0.0305)) - 1.0) / 4.7262;
+  vec3 col = mix(SKY_ZENITH, SKY_HORIZON, clamp(vr, 0.0, 1.0));
+  col = mix(col, AIRGLOW, 0.10 * exp(-a0 * 14.323945));
+
+  // B's horizon (two skies): what is below it dims, stars one by one (star pass), the band here
+  float below = (1.0 - smoothstep(-pxAng, pxAng, dot(v, uZB))) * step(0.25, dot(uZB, uZB)) * uShared;
 
   vec3 e = uMt * v;
   float ra = atan(e.y, e.x);
@@ -167,7 +229,7 @@ void main() {
   vec2 uv = vec2(ra * 0.15915494, 0.5 - dec * 0.31830989);
   float t = texture2D(uMW, uv).r;
   float L = t * t; // the map stores sqrt(luminance)
-  float mwVis = uMwAmt * smoothstep(-0.02, 0.22, alt) * (1.0 - 0.85 * uDay);
+  float mwVis = uMwAmt * smoothstep(-0.02, 0.22, alt) * (1.0 - 0.85 * uDay) * (1.0 - 0.65 * below);
   if (L > 0.0004 && mwVis > 0.0) {
     vec3 g = vec3(dot(G0, e), dot(G1, e), dot(G2, e));
     float gl = atan(g.y, g.x);
@@ -182,11 +244,11 @@ void main() {
     d += 0.12 * lod(c1 * 0.25, pxAng) * (n1.b - 0.5) * 2.0;
     // contrast: the faint outer band recedes, the star clouds stand out
     float mw = pow(L * max(d, 0.0), 1.3);
-    // the bulge glows warm; the bright star clouds elsewhere a clean, faintly cool white, and the
-    // faint outer band a neutral, slightly warm grey (no blue cast at the edges)
+    // the bulge glows a neutral warm (spec §3.7: rgb(1.00, 0.93, 0.82)); the bright star clouds
+    // elsewhere a clean, faintly cool white, the faint outer band a neutral, slightly warm grey
     float warm = exp(-gl * gl / 0.30) * exp(-gb * gb / 0.03) * smoothstep(0.02, 0.4, L);
     vec3 tint = mix(vec3(0.98, 0.95, 0.90), vec3(0.93, 0.945, 0.98), smoothstep(0.04, 0.45, L));
-    tint = mix(tint, vec3(1.0, 0.86, 0.68), warm);
+    tint = mix(tint, vec3(1.0, 0.93, 0.82), warm);
     // Where the view is magnified enough to resolve them, part of the glow turns into its stars:
     // octaves of pinpoints whose density follows the band's brightness (so the dark lanes empty out).
     float res = 0.0;
@@ -215,9 +277,11 @@ void main() {
     col += (tint * (1.0 - exp(-mw * 2.6)) * 0.68 * (1.0 - 0.2 * res * uStarGrain) + grain) * mwVis;
   }
 
+  // moonlight: the whole sky a little brighter, and a small aureole (the disc and its halo are the
+  // overlay's; no big glow here)
   float angM = acos(clamp(dot(v, uMoon), -1.0, 1.0));
   float moonUp = smoothstep(-0.05, 0.05, uMoon.z);
-  col += vec3(0.70, 0.76, 0.92) * uMoonIllum * moonUp * (0.12 * exp(-angM * 18.0) + 0.025 * exp(-angM * 3.0));
+  col += vec3(0.70, 0.76, 0.92) * uMoonIllum * moonUp * (0.035 * exp(-angM * 30.0) + 0.02 * exp(-angM * 3.0));
 
   float cs = dot(v, uSun);
   vec3 dusk = mix(vec3(0.045, 0.065, 0.18), vec3(0.98, 0.48, 0.24), exp(-a0 * 5.0) * pow(0.5 + 0.5 * cs, 2.5));
@@ -226,26 +290,21 @@ void main() {
   day += vec3(1.0, 0.93, 0.8) * (pow(max(cs, 0.0), 90.0) * 0.9 + pow(max(cs, 0.0), 6.0) * 0.14);
   col = mix(col, day, uDay);
 
-  float below = max(th - alt, 0.0);
-  vec3 groundDome = uBg + vec3(0.030, 0.042, 0.080) * exp(-below * 10.0) * (1.0 - uDay * 0.4);
-  float farMask = step(nearTop, alt);   // on the far ridge, not the near one
-  // the land: hills in silhouette against the glow, the far ridge a shade lighter (air between us
-  // and it), the near ground falling off to black toward our feet
-  vec3 groundLand = mix(vec3(0.011, 0.013, 0.020), vec3(0.003, 0.004, 0.006), clamp(below * 2.5, 0.0, 1.0));
-  groundLand = mix(groundLand, vec3(0.022, 0.027, 0.040) + vec3(0.012, 0.015, 0.022) * exp(-below * 40.0), farMask * (1.0 - uDome));
-  groundLand += mix(vec3(0.010, 0.012, 0.018), dusk * 0.10, uTwilight) * exp(-below * 30.0);
-  groundLand += day * 0.08 * uDay;
-  vec3 ground = mix(groundLand, groundDome, uDome);
+  // the land: two ridges in silhouette, the far one a shade lighter (air between us and it), the near
+  // ridge and the ground the page's own black
+  float below2 = max(th - alt, 0.0);
+  float farMask = smoothstep(-pxAng, pxAng, alt - nearTop);
+  vec3 ground = uBg + FAR_LIFT * farMask;
+  ground += mix(vec3(0.0), dusk * 0.10, uTwilight) * exp(-below2 * 30.0);
+  ground += day * 0.08 * uDay;
   vec3 outc = mix(ground, col, skyMask);
-  outc += vec3(0.012, 0.014, 0.020) * exp(-abs(alt - th) * 30.0) * skyMask * (1.0 - uDay);
 
-  vec2 q = gl_FragCoord.xy / uRes - 0.5;
+  vec2 q = (gl_FragCoord.xy - uCenter) / uFrame;
   outc *= 1.0 - uVignette * dot(q, q);
-  outc += uFlash * vec3(0.95, 0.88, 0.76) * exp(-rho2 * 0.35);
-  // static 1-LSB dither (interleaved gradient noise: blue-noise-like, no visible pattern, no crawl)
-  // so the dark gradients never band
+  // static ±½-LSB dither on the background only (interleaved gradient noise: blue-noise-like, no
+  // visible pattern, no crawl) so the dark gradients never band; the stars are added on top
   float gr = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-  gl_FragColor = vec4(outc * uExposure + (gr - 0.5) * uGrain, 1.0);
+  gl_FragColor = vec4(outc * uExposure + (gr - 0.5) * uDither, 1.0);
 }`;
 
 const STAR_VS = `${CAMERA}${TERRAIN}${PHOTOMETRY}
@@ -260,15 +319,21 @@ uniform float uStarGain;
 uniform float uDustGain;
 uniform float uSizeGain;
 uniform float uDay;
-uniform float uSweep;
-uniform float uSweepOn;
+uniform float uListenAz;  // radians: the azimuth of the screen's vertical centre line while listening
+uniform float uListenOn;
+uniform float uListenDir; // +1 while the view turns east, −1 west
 uniform float uSel;
 uniform float uMaxPoint;
 uniform float uTwinkle;
 uniform float uDeep;
+uniform vec3 uZB;
+uniform float uSharedDim;
+uniform float uSharedT;
 varying vec3 vCol;
 varying vec4 vA; // core peak, 1/(2σ²), wing peak, 1/α² (Moffat)
 varying vec4 vB; // spike peak, 1/spike length, 1/(2·spike width²), sprite half-size
+
+const vec3 EMBER = vec3(1.0, 0.913, 0.757); // #E7D3AF normalised to a max channel of 1
 
 void cull() { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; }
 
@@ -277,10 +342,9 @@ void main() {
   float alt = asin(clamp(n.z, -1.0, 1.0));
   float az = atan(n.y, n.x);
   float th = terrain(az);
-  float d = dot(n, uF);
-  if (d < -0.9 || alt < th - 0.02) { cull(); return; }
-  float k = 2.0 / (1.0 + d);
-  vec2 p = uCenter + uScale * k * vec2(dot(n, uR), dot(n, uU));
+  float ok;
+  vec2 p = proj(n, ok);
+  if (ok < 0.5 || alt < th - 0.02) { cull(); return; }
   gl_Position = vec4(p / uRes * 2.0 - 1.0, 0.0, 1.0);
 
   float mag = aInfo.x;
@@ -291,9 +355,9 @@ void main() {
   float named = (1.0 - dust) * (1.0 - deep);
 
   float pr = uDpr * uSizeGain;
-  float pxPerRad = uScale * k;
-  // How deep we see depends on how magnified the sky is: a whole-sky chart shows the naked-eye stars,
-  // a full-screen view reaches V≈8, so density always reads as depth, never as noise. Continuous in
+  float pxPerRad = projScale(dot(n, uF));
+  // How deep we see depends on how magnified the sky is: a wide view shows the naked-eye stars, a
+  // full-screen view reaches V≈8, so density always reads as depth, never as noise. Continuous in
   // zoom, and every star fades over ~0.8 mag, so nothing pops.
   float cssPerDeg = pxPerRad / pr * 0.01745329;
   float lim = 6.35 + 1.95 * clamp(log2(max(cssPerDeg, 0.05) / 1.6) / 2.9, 0.0, 1.0);
@@ -304,28 +368,36 @@ void main() {
   // zooming in gathers more light per star, like a longer lens: stars brighten (never shrink) and
   // the fainter ones come forward
   float lens = 0.45 * clamp(log2(max(cssPerDeg, 0.05) / 8.0), 0.0, 2.0);
-  float m = mag + extinction(alt - th) - lens;
+  float ext = extinction(alt);
+  float m = mag + ext - lens;
 
-  float lowness = 1.0 - clamp(alt / 1.1, 0.0, 1.0);
-  float tw = 1.0 + uTwinkle * (0.02 + 0.12 * lowness * lowness) * named
+  // twinkling is a thing of the low sky (spec §3.3)
+  float lo = 1.0 - max(sin(alt), 0.0);
+  float tw = 1.0 + uTwinkle * (0.04 + 0.16 * lo * lo * lo) * named
     * (0.6 * sin(uTime * (0.8 + seed * 1.6) + seed * 61.0) + 0.4 * sin(uTime * (2.1 + seed * 2.3) + seed * 17.0));
-  float since = mod(az - uSweep, 6.2831853);
-  float flare = uSweepOn * exp(-since * 5.0) * step(mag, 4.2) * named;
+  // listening: a bright star flares as it crosses the centre line (fast rise, slow decay, by angle
+  // turned past the line) and takes a momentary ember tint
+  float since = mod(uListenDir * (uListenAz - az), 6.2831853);
+  // (rise over 0.9°, then e-folding over 4.1°: 120 ms and ~1.6 s at the 7.5°/s listening turn)
+  float flare = uListenOn * smoothstep(0.0, 0.016, since) * exp(-max(since - 0.016, 0.0) / 0.072) * step(mag, 3.4) * named;
   float sel = (1.0 - step(0.5, abs(aInfo.w - uSel))) * named;
+  // two skies: below B's horizon, stars dim one by one (delay seed·0.66, over 0.34 of the reveal)
+  float belowB = (1.0 - step(0.0, dot(n, uZB))) * step(0.25, dot(uZB, uZB));
+  float shared = mix(1.0, uSharedDim, belowB * clamp((uSharedT - seed * 0.66) / 0.34, 0.0, 1.0));
 
   float sigma = starSigma(pr);
   float nrm = starNorm(pr, sigma);
   float F = starFlux(m);
   float gain = mix(uStarGain, uDustGain * smoothstep(5.9, 7.5, lim), dust) * (1.0 - 0.7 * uDay);
   if (dust > 0.5) vis = sink * smoothstep(-0.3, 0.3, alt);
-  float g = vis * gain * tw * nrm;
-  float Pc = starCore(F) * g * (1.0 + flare * 1.6 + sel * 1.2);
-  // the glow is kept smaller on a zoomed-out whole-sky chart, where it would crowd the picture
-  float Pw = starWing(F) * g * (1.0 + flare * 3.0 + sel * 2.5) * (1.0 - dust)
+  float g = vis * gain * tw * nrm * shared * (1.0 + 1.2 * flare);
+  float Pc = starCore(F) * g * (1.0 + sel * 1.2);
+  // the glow is kept smaller on a zoomed-out view, where it would crowd the picture
+  float Pw = starWing(F) * g * (1.0 + sel * 2.5) * (1.0 - dust)
     * (0.45 + 0.55 * smoothstep(1.2, 6.0, cssPerDeg));
   float al = 1.5 * pr;
   float spike = smoothstep(1.3, -0.8, m) * named;
-  float Sp = 0.2 * spike * vis * gain;
+  float Sp = 0.2 * spike * vis * gain * shared;
   float ell = (2.5 + 3.5 * spike) * pr;
 
   // sprite just large enough to hold everything brighter than ~1/255
@@ -341,8 +413,8 @@ void main() {
 
   vA = vec4(Pc, 0.5 / (sigma * sigma), Pw, 1.0 / (al * al));
   vB = vec4(Sp, 1.0 / ell, 0.5 / (sigma * sigma * 0.5), size * 0.5);
-  vec3 hue = starHue(aColor, 1.45);
-  vCol = mix(hue, hue * vec3(1.0, 0.88, 0.70), flare * 0.7);
+  vec3 hue = starHue(aColor, 1.45) * reddening(ext);
+  vCol = mix(hue, EMBER, flare * 0.8);
 }`;
 
 const STAR_FS = `${PREC}
@@ -388,14 +460,14 @@ varying vec3 vCol;
 
 void main() {
   vec3 na = uMa * aPos, nb = uMb * aPos;
-  float da = dot(na, uF), db = dot(nb, uF);
-  float ha = asin(clamp(na.z, -1.0, 1.0)) - terrain(atan(na.y, na.x));
-  float hb = asin(clamp(nb.z, -1.0, 1.0)) - terrain(atan(nb.y, nb.x));
+  float alta = asin(clamp(na.z, -1.0, 1.0)), altb = asin(clamp(nb.z, -1.0, 1.0));
+  float ha = alta - terrain(atan(na.y, na.x));
+  float hb = altb - terrain(atan(nb.y, nb.x));
+  float oka, okb;
+  vec2 pa = proj(na, oka);
+  vec2 pb = proj(nb, okb);
   float mag = aInfo.x;
-  if (min(da, db) < -0.8 || max(ha, hb) < -0.01 || mag > uTrailLim + 0.4) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  float ka = 2.0 / (1.0 + da), kb = 2.0 / (1.0 + db);
-  vec2 pa = uCenter + uScale * ka * vec2(dot(na, uR), dot(na, uU));
-  vec2 pb = uCenter + uScale * kb * vec2(dot(nb, uR), dot(nb, uU));
+  if (oka * okb < 0.5 || max(ha, hb) < -0.01 || mag > uTrailLim + 0.4) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   vec2 dv = pb - pa;
   float len = length(dv);
   vec2 dir = len > 1e-3 ? dv / len : vec2(1.0, 0.0);
@@ -403,8 +475,9 @@ void main() {
 
   float pr = uDpr * uSizeGain;
   float sigma = starSigma(pr);
-  float m = mag + extinction(min(ha, hb));
-  float vis = clamp(min(ha, hb) * uScale * ka / 1.5 + 0.5, 0.0, 1.0) * smoothstep(uTrailLim + 0.4, uTrailLim - 0.4, mag);
+  float ext = extinction(min(alta, altb));
+  float m = mag + ext;
+  float vis = clamp(min(ha, hb) * projScale(dot(na, uF)) / 1.5 + 0.5, 0.0, 1.0) * smoothstep(uTrailLim + 0.4, uTrailLim - 0.4, mag);
   // compressed photometry: the faintest trailed stars draw fine threads, the brightest are a little
   // wider and brighter, never thick white bars (flux relative to V = 4.4)
   float P = 1.0 * pow(starFlux(m + 1.6), 0.45) * uGain * vis * starNorm(pr, sigma);
@@ -413,7 +486,7 @@ void main() {
   vec2 pos = (aInfo.y < 0.0 ? pa : pb) + dir * aInfo.y * w + nrm * aInfo.z * w;
   vUV = vec2(dot(pos - pa, dir), dot(pos - pa, nrm));
   vP = vec3(P, 0.70710678 / sigma, len);
-  vCol = starHue(aColor, 1.6);
+  vCol = starHue(aColor, 1.6) * reddening(ext);
   gl_Position = P < 0.002 ? vec4(2.0, 2.0, 2.0, 1.0) : vec4(pos / uRes * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
@@ -486,6 +559,7 @@ function makeNoise(size = 256) {
   return { size, data };
 }
 
+const ZERO3 = [0, 0, 0];
 const smooth01 = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
 
 export class SkyRenderer {
@@ -499,6 +573,8 @@ export class SkyRenderer {
     this.mt = new Float32Array(9);
     this.prevM = new Float32Array(9);
     this.hasPrevM = false;
+    this.tileX = 0; this.tileY = 0;
+    this.listenDir = 1; this.listenPrev = null;
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; });
     canvas.addEventListener('webglcontextrestored', () => { this.lost = false; this.init(); });
     this.init();
@@ -697,11 +773,20 @@ export class SkyRenderer {
     this.hasPrevM = false;
   }
 
+  /**
+   * Tiled exports: this canvas shows the part of a larger frame whose top-left corner is (dx, dy)
+   * device px into it. The camera describes the whole frame (its w/h), the canvas is sized to the tile.
+   */
+  setTileOffset(dx = 0, dy = 0) {
+    this.tileX = dx; this.tileY = dy;
+  }
+
   setCamera(prog, cam) {
     const gl = this.gl, dpr = this.dpr, u = prog.u;
     gl.uniform2f(u.uRes, this.canvas.width, this.canvas.height);
-    gl.uniform2f(u.uCenter, cam.cx * dpr, (this.cssH - cam.cy) * dpr);
-    gl.uniform1f(u.uScale, cam.scale * dpr);
+    gl.uniform2f(u.uCenter, cam.cx * dpr - this.tileX, (this.cssH - cam.cy) * dpr + this.tileY);
+    gl.uniform1f(u.uScale, cam.S * dpr);
+    gl.uniform1f(u.uP, cam.P);
     gl.uniform3f(u.uF, cam.f[0], cam.f[1], cam.f[2]);
     gl.uniform3f(u.uU, cam.u[0], cam.u[1], cam.u[2]);
     gl.uniform3f(u.uR, cam.r[0], cam.r[1], cam.r[2]);
@@ -740,8 +825,13 @@ export class SkyRenderer {
     gl.uniform1f(u.uDustGain, dustGain);
     gl.uniform1f(u.uSizeGain, s.sizeGain);
     gl.uniform1f(u.uDay, s.day);
-    gl.uniform1f(u.uSweep, s.sweep);
-    gl.uniform1f(u.uSweepOn, s.sweepOn);
+    gl.uniform1f(u.uListenAz, (s.listenAz || 0) * 0.017453293);
+    gl.uniform1f(u.uListenOn, s.listenOn || 0);
+    gl.uniform1f(u.uListenDir, this.listenDir);
+    const zB = s.zB || ZERO3;
+    gl.uniform3f(u.uZB, zB[0], zB[1], zB[2]);
+    gl.uniform1f(u.uSharedDim, s.sharedDim ?? 1);
+    gl.uniform1f(u.uSharedT, s.sharedT ?? 0);
     gl.uniform1f(u.uSel, s.sel);
     gl.uniform1f(u.uMaxPoint, this.maxPoint);
     gl.uniform1f(u.uTwinkle, s.twinkle);
@@ -798,13 +888,13 @@ export class SkyRenderer {
     const df = Math.acos(Math.max(-1, Math.min(1, cam.f[0] * c[3] + cam.f[1] * c[4] + cam.f[2] * c[5])));
     const du = Math.acos(Math.max(-1, Math.min(1, cam.u[0] * c[6] + cam.u[1] * c[7] + cam.u[2] * c[8])));
     const half = 0.5 * Math.hypot(this.cssW, this.cssH);
-    return Math.abs(cam.cx - c[0]) + Math.abs(cam.cy - c[1]) + Math.abs(cam.scale - c[2]) / Math.max(1, cam.scale) * half
-      + (df + du) * cam.scale;
+    return Math.abs(cam.cx - c[0]) + Math.abs(cam.cy - c[1]) + Math.abs(cam.S - c[2]) / Math.max(1, cam.S) * half
+      + Math.abs(cam.P - c[9]) * half + (df + du) * cam.S;
   }
 
   rememberCamera(cam) {
-    const c = this.camPrev || (this.camPrev = new Float64Array(9));
-    c[0] = cam.cx; c[1] = cam.cy; c[2] = cam.scale;
+    const c = this.camPrev || (this.camPrev = new Float64Array(10));
+    c[0] = cam.cx; c[1] = cam.cy; c[2] = cam.S; c[9] = cam.P;
     c[3] = cam.f[0]; c[4] = cam.f[1]; c[5] = cam.f[2]; c[6] = cam.u[0]; c[7] = cam.u[1]; c[8] = cam.u[2];
   }
 
@@ -818,9 +908,14 @@ export class SkyRenderer {
     }
     const W = this.canvas.width, H = this.canvas.height;
     const trail = s.trail;
-    // A whole-sky chart has no landscape: the skyline flattens into a clean horizon circle as the
-    // view tilts up into the dome (continuously, with the ground blend).
-    this.terrainH = s.terrainH * (1 - Math.min(1, Math.max(0, s.dome)));
+    this.terrainH = s.terrainH;
+    // the direction the view turns while listening decides which side of the centre line has just
+    // sounded (the flare trails behind the line)
+    if (s.listenOn > 0 && this.listenPrev !== null) {
+      const d = s.listenAz - this.listenPrev;
+      if (Math.abs(d) > 1e-4) this.listenDir = d > 0 ? 1 : -1;
+    }
+    this.listenPrev = s.listenOn > 0 ? s.listenAz : null;
 
     // How much of the picture is a long exposure. Under the trails the Milky Way is dimmed and its
     // resolved grain removed (a real exposure would smear it); eased in time so it never pops.
@@ -868,7 +963,7 @@ export class SkyRenderer {
         // Trail brightness per pixel no longer depends on the framing, but density does: a small
         // whole-sky chart packs every trail into a few hundred pixels, so it trails fewer, fainter
         // stars and exposes a little less.
-        const cssPerRad = s.cam.scale / Math.max(0.1, s.sizeGain);
+        const cssPerRad = s.cam.S / Math.max(0.1, s.sizeGain);
         const dense = 1 - smooth01((cssPerRad - 90) / 420);
         const lim = TRAIL_MAG - 1.4 * dense;
         this.drawTrails(s, trail.Ms, s.starGain * (trail.gain ?? 0.24) * (1 - 0.35 * dense), keep, lim);
@@ -903,12 +998,13 @@ export class SkyRenderer {
     gl.uniform1f(u.uStarGrain, 1 - this.trailMix);
     gl.uniform1f(u.uPr, this.dpr * s.sizeGain);
     gl.uniform3f(u.uBg, s.bg[0], s.bg[1], s.bg[2]);
-    gl.uniform1f(u.uDome, s.dome);
     gl.uniform1f(u.uExposure, s.exposure);
-    // callers pass film-grain strength; keep only a static 1-LSB dither of it (quiet, no crawl)
-    gl.uniform1f(u.uGrain, Math.min(1 / 255, s.grain * 0.3));
-    gl.uniform1f(u.uFlash, s.flash);
-    gl.uniform1f(u.uVignette, s.vignette * 0.45);
+    gl.uniform1f(u.uDither, s.dither ?? 0.004);
+    gl.uniform1f(u.uVignette, (s.vignette ?? 0.12) * 0.45);
+    gl.uniform2f(u.uFrame, (s.cam.w || this.cssW) * this.dpr, (s.cam.h || this.cssH) * this.dpr);
+    const zB = s.zB || ZERO3;
+    gl.uniform3f(u.uZB, zB[0], zB[1], zB[2]);
+    gl.uniform1f(u.uShared, (s.sharedDim ?? 1) < 0.999 ? Math.min(1, Math.max(0, s.sharedT ?? 0)) : 0);
     gl.uniform1f(u.uTerrainH, this.terrainH);
     this.fullscreen(P);
 

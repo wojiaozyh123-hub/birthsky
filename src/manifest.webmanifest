@@ -1,2 +1,2 @@
-{ "name": "你来的那晚", "short_name": "你来的那晚", "start_url": "./", "display": "standalone", "background_color": "#04060d", "theme_color": "#04060d",
+{ "name": "你来的那晚", "short_name": "你来的那晚", "start_url": "./", "display": "standalone", "background_color": "#030407", "theme_color": "#030407",
   "icons": [{ "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml" }, { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }] }

@@ -17,6 +17,8 @@
     "astronomy-engine": "^2.1.19",
     "d3-celestial": "^0.7.35",
     "esbuild": "^0.25.12",
+    "fontkit": "^2.0.4",
+    "jsqr": "^1.4.0",
     "puppeteer-core": "^23.11.1",
     "qrcode-generator": "^2.0.4"
   },

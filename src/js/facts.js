@@ -1,231 +1,473 @@
-// What was true on the night: moon, lunar date, solar term, the star overhead, planets,
-// how many stars were up, and the "light-year star" whose light left home the year you were born.
-import { mul, dirName, lunarDate, solarTerm, zonedParts, yearsBetween } from './astro.js';
-import { ICONS, escapeHtml, fmtNum } from './ui.js';
+// What was true on the night: moon, lunar date, solar term, the star overhead, planets, how many stars
+// were up, and the "light-year star" whose light left home the year you were born — and how to say it.
+// All returned text is plain (no HTML). Strings come from copy.js.
+//
+// Public API
+//   computeFacts(catalog, person, moment, sky, now = new Date()) → facts
+//   chooseHero(catalog, sky, facts, subject = '你') → { kind, n, alt, az, target, label, caption, body?, info? }
+//      kind: 'light'|'moon'|'planet'|'core'|'star'|'south'|'day'|'twilight' (spec §3.2, first match wins)
+//      n: NEU unit vector to face (for south/day/twilight: a point on the horizon at az)
+//      target: {type:'star', index} | {type:'body', id} | null  (null → no strip, nothing to select)
+//      label: text for the small tag beside the hero (织女星 / 月亮 / 火星 / 银河中心) or null
+//      reticle: true when there is a thing at n worth marking (everything but south/day/twilight)
+//   heroCaption(hero, facts, subject) → string                           (S5)
+//   buildTour(catalog, facts, sky, hero, subject) → [{ key, text, target, n, az, alt, belowHorizon, marker, label, hero? }]
+//      marker: { n, label: '月亮 · 地平线下 12°' } | null; n null → "the camera does not move"
+//   nightRows(facts, subject) → [{ key, label, text, meta, target, action }]   (S10; action '在天上看' | '')
+//   nightNote(facts) → '时间未知，画的是当晚 22:00 的天空' | ''
+//   factsPeek(facts) → '亏凸月 · 农历闰五月廿一 · 小暑 · 4,267 颗星'
+//   describe(catalog, sel, sky, facts, { subject, pair }) → { name, latin, meta, story, lead, below, alt, az, n } | null
+//      lead: first-line text (below-horizon line + two-person line), already included at the start of story
+//      pair: a computeHepan() result (uses its sa/sb/nameA/nameB)
+//   tagText(kind, obj, facts) → string        kind 'moon'|'planet'|'zenith'|'light'
+//   tagsFor(catalog, sky, facts) → [{ key, kind, n, text, target }]   look-to-reveal candidates that are up
+//   lightStarSentence(facts, subject) → string;  lightStarShort(facts) → '织女星的光，2001 年就动身了。'
+//   fmtLy(ly) → '25 光年';  momentYear(date, tz);  STAR_NOTES;  BODY_NOTES;  MW_CORE
+import { mul, radec, altAz, dirName, lunarDate, solarTerm, zonedParts, yearsBetween } from './astro.js';
+import { T, fmtCount, fmtMag, fmtDeg, fmtLightTime, keepWords } from './copy.js';
 
 const AU_KM = 149597870.7;
+const C_KMS = 299792.458;
+const DEG = Math.PI / 180;
 
 export const STAR_NOTES = {
-  Sirius: '全天最亮的恒星。冬夜南方天空里那颗蓝白色、闪得最厉害的星就是它。',
-  Canopus: '全天第二亮的恒星。古人说看见它便会长寿，所以叫它老人星、寿星。',
-  'Rigil Kentaurus': '离太阳系最近的恒星系统，光从那里出发，只要 4.3 年就能到达地球。',
-  Arcturus: '北半球春夜最亮的星。顺着北斗斗柄的弧线向外延伸，就能找到这颗橙色的星。',
-  Vega: '七夕传说里的织女。夏夜头顶最亮的星之一，隔着银河与牛郎星遥遥相望。',
-  Altair: '七夕传说里的牛郎，古称河鼓二。两旁的两颗小星，被说成他挑着的一双儿女。',
-  Deneb: '天鹅座的尾巴，也是银河里的“渡口”。它极其遥远，却仍亮得足以组成夏季大三角。',
-  Capella: '御夫座最亮的星，冬夜高悬头顶。它其实是由两对恒星组成的四合星系统。',
-  Rigel: '猎户座脚下的蓝白色超巨星，比太阳亮上万倍。',
-  Procyon: '冬季大三角的一角，离我们只有 11 光年多一点。',
-  Betelgeuse: '猎户座肩头的红超巨星。如果把它放在太阳的位置，它会吞没火星的轨道。',
-  Aldebaran: '金牛座红色的“牛眼”，冬夜里跟在昴星团后面升起。',
-  Antares: '天蝎的心脏，一颗火红的超巨星。古人叫它“大火”，“七月流火”说的就是它。',
-  Spica: '处女座最亮的星，也是东方苍龙的“龙角”。',
-  Pollux: '双子座两兄弟中更亮的一位，一颗离我们不远的橙色巨星。',
-  Castor: '双子座的另一位兄弟，其实是由六颗恒星组成的家族。',
-  Fomalhaut: '秋夜南方天空里唯一的亮星，孤零零地挂着，所以格外好认。',
-  Regulus: '狮子座的心脏，几乎正好躺在太阳每年经过的黄道上。',
-  Polaris: '几乎一动不动地守在正北方，整片星空都绕着它旋转。',
-  Algol: '一颗会“眨眼”的星：每隔不到三天，它会暗下去几个小时，因为伴星从它面前经过。',
-  Alcyone: '昴星团里最亮的一颗。昴星团是一群差不多同时诞生的年轻恒星。',
-  Mimosa: '南十字座的一颗亮星，只有在南方低纬度的地方才看得到。',
-  Acrux: '南十字座最亮的星，南半球的人用南十字来寻找正南方向。',
-  Achernar: '波江座的“河的尽头”。它自转得非常快，被甩成了一个扁球。',
+  Sirius: '冬夜的南天，有一粒蓝白的光颤个不停，那便是全天最亮的恒星。',
+  Canopus: '全天第二亮的恒星。古人只在南天低处偶尔望见它，说见者添寿，唤它老人星。',
+  'Rigil Kentaurus': '离我们最近的恒星系统，比邻星也在其中。光只走 4.3 年，像是住在隔壁。',
+  Arcturus: '北半球春夜最亮的星。顺着北斗斗柄的弧线往外走，会遇见一点橙色的暖光。',
+  Vega: '七夕里的织女，夏夜头顶最亮的星之一。隔着一道银河，牛郎在对岸望了千年。',
+  Altair: '七夕里的牛郎，古称河鼓二。身旁两颗小星，说是他挑着的一双儿女，正要过河。',
+  Deneb: '天鹅座的尾巴。天津，是银河上的渡口。它远得惊人，却依旧亮成夏季大三角的一角。',
+  Capella: '御夫座最亮的星，冬夜高悬头顶。远看是一粒金黄，其实是两对恒星，四颗结伴同行。',
+  Rigel: '猎户座的一只脚。比太阳亮上万倍的蓝白超巨星，隔得太远，只剩一点寒光。',
+  Procyon: '冬季大三角的一角。离我们 11 光年多一点，在星空里，已算近在咫尺。',
+  Betelgeuse: '猎户座肩头一点暗红的炭火，其实是颗超巨星：放在太阳的位置，它会吞下火星的轨道。',
+  Aldebaran: '金牛的红眼睛。冬夜，它总跟在昴星团身后，从东方的屋檐上慢慢升起。',
+  Antares: '天蝎的心脏，一颗火红的超巨星，古人叫它大火。七月流火，是它西沉，天要转凉了。',
+  Spica: '处女座最亮的星。在古人的天上，它是东方苍龙的一只角，春夜里青白地亮着。',
+  Pollux: '双子座两兄弟里更亮的那个，一颗橙色的巨星。它的光走三十多年，约是人的半生。',
+  Castor: '双子座的另一个兄弟。它是六颗星的一大家子，两两相携，绕着彼此慢慢地转。',
+  Fomalhaut: '秋夜的南天亮星寥寥，它独自亮着，像远水上的一点渔火，一眼就能认出。',
+  Regulus: '狮子座的心脏，几乎就躺在黄道上。每年八月，太阳都从它身旁轻轻走过。',
+  Polaris: '它并不很亮，只是几乎不动。它守在正北，满天星斗都绕着它，一夜一夜地转。',
+  Algol: '一颗会眨眼的星。每隔不到三天，伴星从它面前走过，它便垂下眼睑，暗上几个小时。',
+  Alcyone: '昴星团里最亮的一颗。它和身边的姊妹差不多同时出生，论星的年岁，都还年少。',
+  Mimosa: '南十字座的一颗亮星。要一路往南走得够远，它才肯在天边露面。',
+  Acrux: '南十字座最亮的星。南天没有一颗明亮的极星，赶夜路的人，便看南十字找正南。',
+  Achernar: '波江座这条河的尽头，水流到这里，聚成一颗星。它转得太快，把自己甩成了扁球。',
 };
 const DIPPER = new Set(['Dubhe', 'Merak', 'Phecda', 'Megrez', 'Alioth', 'Mizar', 'Alkaid']);
 
 export const BODY_NOTES = {
   Moon: '',
   Sun: '',
-  Mercury: '离太阳最近的行星，古称辰星，总是贴着地平线在晨昏时出现。',
-  Venus: '除了日月，天上最亮的天体。清晨叫启明，黄昏叫长庚。',
-  Mars: '红色的“荧惑”，古人觉得它行踪不定，令人迷惑。',
-  Jupiter: '太阳系最大的行星，古称岁星，大约十二年绕天一周。',
-  Saturn: '带着光环的“镇星”，大约二十九年才绕天一周。',
+  Mercury: '离太阳最近的行星，古称辰星。只在晨光暮色里，贴着天边露一露脸。',
+  Venus: '除了日月，天上数它最亮。破晓时它叫启明，到了黄昏，又叫长庚。',
+  Mars: '古人叫它荧惑。荧荧一点红火，在星间忽进忽退，叫人看不透。',
+  Jupiter: '太阳系最大的行星。约十二年绕天一周，古人数着它纪年，唤作岁星。',
+  Saturn: '戴着光环的镇星。约二十九年才绕天一周，每年坐镇一宿，从不着急。',
 };
 
-function starVec(catalog, i) {
+const PLANETS = new Set(['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn']);
+// how a planet looks, and what it was called (S5 行星 caption)
+const PLANET_LOOK = {
+  Mercury: ['低垂的', '辰星'],
+  Venus: ['灼灼的', ''], // 启明 in the east (morning), 长庚 in the west (evening)
+  Mars: ['泛红的', '荧惑'],
+  Jupiter: ['静静亮着的', '岁星'],
+  Saturn: ['淡金色的', '镇星'],
+};
+
+/** Galactic centre, J2000 (spec §3.2). */
+export const MW_CORE = { ra: 266.4, dec: -29.0 };
+
+// ---------------------------------------------------------------- helpers
+function starN(catalog, M, i, out = [0, 0, 0]) {
   const p = catalog.stars.pos;
-  return [p[i * 3], p[i * 3 + 1], p[i * 3 + 2]];
+  return mul(M, [p[i * 3], p[i * 3 + 1], p[i * 3 + 2]], out);
 }
+
+function horizonVec(azDeg, altDeg = 0) {
+  const a = azDeg * DEG, h = altDeg * DEG;
+  return [Math.cos(h) * Math.cos(a), Math.cos(h) * Math.sin(a), Math.sin(h)];
+}
+
+const norm360 = (x) => ((x % 360) + 360) % 360;
+
+/** Display name of a named star: the catalogue's first Chinese name (「天市右垣七 蜀」 → 天市右垣七). */
+export function starName(info) {
+  const zh = String(info?.zh || '');
+  return /\p{Script=Han}/u.test(zh) ? zh.split(/\s+/)[0] : zh;
+}
+const named = (info) => (info ? { ...info, zh: starName(info) } : null);
+const pctOf = (illum) => Math.round(illum * 100);
+const lightMinutes = (distAu) => (distAu * AU_KM) / C_KMS / 60;
+const belowDeg = (alt) => Math.max(1, Math.round(-alt));
 
 export function momentYear(date, tz) {
   return zonedParts(date, tz).y;
 }
 
-/**
- * @param subject '你' for your own sky, 'TA' for someone else's.
- */
-export function computeFacts(catalog, person, moment, sky, now = new Date()) {
-  const { M } = sky;
-  const n = [0, 0, 0];
-  let visible = 0, zenith = null, zenAlt = -1;
-  const pos = catalog.stars.pos, mag = catalog.stars.mag;
-  for (let i = 0; i < catalog.stars.count; i++) {
-    mul(M, [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]], n);
-    if (n[2] <= 0) continue;
-    visible++;
-    if (mag[i] <= 3 && catalog.names.has(i) && n[2] > zenAlt) { zenAlt = n[2]; zenith = i; }
-  }
-  const zenithInfo = zenith !== null ? { ...catalog.names.get(zenith), fromZenith: 90 - Math.asin(zenAlt) * 180 / Math.PI } : null;
+export function fmtLy(ly) {
+  if (ly < 20) return `${ly.toFixed(1)} 光年`;
+  return `${fmtCount(ly)} 光年`;
+}
+const lyNum = (ly) => (ly < 20 ? ly.toFixed(1) : fmtCount(ly));
 
-  const planets = sky.bodies.filter((b) => !['Sun', 'Moon'].includes(b.id) && b.alt > 0)
-    .sort((a, b) => a.mag - b.mag);
+// ---------------------------------------------------------------- facts
+// names the line breakers must keep whole (copy.keepWords): once per catalogue, plus the person
+const registered = new WeakSet();
+function registerNames(catalog, person) {
+  if (!registered.has(catalog)) {
+    registered.add(catalog);
+    keepWords([...catalog.names.values()].map(starName));
+    keepWords(Object.values(catalog.conZh || {}));
+  }
+  keepWords([person?.name, person?.city?.name]);
+}
+
+export function computeFacts(catalog, person, moment, sky, now = new Date()) {
+  registerNames(catalog, person);
+  const { M } = sky;
+  let visible = 0, zenith = -1, zenZ = -1;
+  const pos = catalog.stars.pos, mag = catalog.stars.mag, count = catalog.stars.count;
+  const m2 = M[2], m5 = M[5], m8 = M[8];
+  for (let i = 0; i < count; i++) {
+    const z = m2 * pos[i * 3] + m5 * pos[i * 3 + 1] + m8 * pos[i * 3 + 2];
+    if (z <= 0) continue;
+    visible++;
+    if (mag[i] <= 3 && z > zenZ && catalog.names.has(i)) { zenZ = z; zenith = i; }
+  }
+  const withPos = (info) => {
+    if (!info) return null;
+    const n = starN(catalog, M, info.i);
+    const { alt, az } = altAz(n);
+    return { ...named(info), n, alt, az };
+  };
+  const zenithInfo = zenith >= 0 ? { ...withPos(catalog.names.get(zenith)), fromZenith: 90 - Math.asin(Math.min(1, zenZ)) / DEG } : null;
+
+  const allPlanets = sky.bodies.filter((b) => PLANETS.has(b.id));
+  const planets = allPlanets.filter((b) => b.alt > 0).sort((a, b) => a.mag - b.mag);
 
   const age = Math.max(0, yearsBetween(moment, now));
-  const light = lightYearStar(catalog, age);
   const tz = person.city.tz;
   return {
     visible,
     zenith: zenithInfo,
-    planets,
-    moon: { ...sky.moonPhase, up: sky.moon.alt > 0, alt: sky.moon.alt, az: sky.moon.az, distKm: sky.moon.dist * AU_KM },
-    sun: { alt: sky.sun.alt, az: sky.sun.az },
+    planets, allPlanets,
+    moon: { ...sky.moonPhase, up: sky.moon.alt > 0, alt: sky.moon.alt, az: sky.moon.az, n: sky.moon.n, distKm: sky.moon.dist * AU_KM },
+    sun: { alt: sky.sun.alt, az: sky.sun.az, n: sky.sun.n, dist: sky.sun.dist },
     daylight: sky.daylight,
     lunar: lunarDate(moment, tz),
     term: solarTerm(moment, tz),
-    age, light,
+    age, light: withPos(lightYearStar(catalog, age, M)),
     birthYear: momentYear(moment, tz),
+    nowYear: now.getFullYear(),
+    unknownTime: !!person.unknownTime,
+    lat: person.city.lat,
   };
 }
 
-function lightYearStar(catalog, age) {
+// The "light-year star": a star you could find, whose light has been travelling about as long as you
+// have been alive. Under 4 the sentence names 南门二, so that is the star. Otherwise the distance
+// match is traded against brightness (a recognisable star) and against being below the horizon on
+// the birth night (spec example: 1998-07-14 杭州 → 织女星, 25 光年).
+function lightYearStar(catalog, age, M) {
+  if (age < 4) {
+    for (const info of catalog.names.values()) if (info.en === 'Rigil Kentaurus') return info;
+  }
   let best = null, bestScore = Infinity;
   for (const info of catalog.names.values()) {
-    if (!info.ly || info.mag > 4.3 || info.ly > 400) continue;
-    const score = Math.abs(info.ly - age) + Math.max(0, info.mag - 1.5) * 0.35;
+    if (!info.ly || info.mag > 3.5 || info.ly > 400) continue;
+    let score = Math.abs(info.ly - age) + 1.5 * Math.max(0, info.mag - 1);
+    if (M && starN(catalog, M, info.i)[2] <= 0) score += 5;
     if (score < bestScore) { bestScore = score; best = info; }
   }
   return best;
 }
 
-// ---------------------------------------------------------------- copy
-const cnYear = (y) => `${y} 年`;
-
+// ---------------------------------------------------------------- light-year star
 export function lightStarSentence(f, subject = '你') {
   const s = f.light;
   if (!s) return '';
-  const nowYear = new Date().getFullYear();
-  const dep = Math.round(nowYear - s.ly);
-  const name = `<em>${escapeHtml(s.zh)}</em>`;
-  if (f.age < 4) {
-    return `今晚${subject}看到的每一颗星，光都出发在${subject}出生之前。离我们最近的南门二，光也要走 4.3 年。`;
-  }
+  if (f.age < 4) return T.hero.lightYoung(subject);
+  const dep = Math.round(f.nowYear - s.ly);
   const diff = s.ly - f.age;
-  if (Math.abs(diff) < 1.2) {
-    return `今晚抬头，${subject}看到的${name}的光，是在${subject}出生那年出发的——它走了 ${s.ly.toFixed(1)} 光年，刚好走完${subject}到今天的这一段路。`;
-  }
-  if (diff < 0) {
-    return `今晚${subject}看到的${name}，光是在 ${cnYear(dep)}出发的，那年${subject} ${Math.max(1, Math.round(f.age - s.ly))} 岁。`;
-  }
-  return `今晚${subject}看到的${name}，光在 ${cnYear(dep)}就已出发，比${subject}出生还早 ${Math.round(diff)} 年。`;
+  if (Math.abs(diff) < 1.2) return T.hero.lightSame(subject, s.zh, lyNum(s.ly));
+  if (diff < 0) return T.hero.lightAfter(subject, s.zh, dep, Math.max(1, dep - f.birthYear));
+  return T.hero.lightBefore(subject, s.zh, dep, Math.max(1, f.birthYear - dep));
 }
 
-export function factsPeek(f) {
-  const moon = `<b>${f.moon.name}</b>`;
-  const lunar = f.lunar ? ` · ${f.lunar.text}` : '';
-  return `${moon}${lunar} · ${f.term.name} · ${fmtNum(f.visible)} 颗星`;
+export function lightStarShort(f) {
+  const s = f.light;
+  if (!s) return '';
+  return T.keep.sentence(s.zh, Math.round(f.nowYear - s.ly));
 }
 
-export function renderFacts(el, f, { subject = '你', person, slotHtml = '' } = {}) {
+// ---------------------------------------------------------------- hero (spec §3.2)
+export function chooseHero(catalog, sky, facts, subject = '你') {
+  const hero = pickHero(catalog, sky, facts);
+  hero.reticle = !['south', 'day', 'twilight'].includes(hero.kind);
+  hero.caption = heroCaption(hero, facts, subject);
+  return hero;
+}
+
+function pickHero(catalog, sky, facts) {
+  const sun = sky.sun;
+  if (sun.alt > -6) {
+    const az = norm360(sun.az + 180);
+    return { kind: sun.alt > 0 ? 'day' : 'twilight', n: horizonVec(az), alt: 0, az, target: null, label: null };
+  }
+  // 1. the light-year star
+  const L = facts.light;
+  if (L && L.alt >= 12 && L.alt <= 50) {
+    return { kind: 'light', n: L.n, alt: L.alt, az: L.az, target: { type: 'star', index: L.i }, label: L.zh, info: L };
+  }
+  const coreN = mul(sky.M, radec(MW_CORE.ra, MW_CORE.dec));
+  const core = { kind: 'core', n: coreN, ...altAz(coreN), target: null, label: T.hero.coreLabel };
+  // 2. the Moon — unless it is bright and high while the core is well up
+  const moon = sky.moon;
+  if (moon.alt >= 8 && moon.alt <= 50) {
+    if (sky.moonPhase.illum > 0.8 && moon.alt > 45 && core.alt > 20) return core;
+    return { kind: 'moon', n: moon.n, alt: moon.alt, az: moon.az, target: { type: 'body', id: 'Moon' }, label: moon.zh };
+  }
+  // 3. the brightest planet at 10–50°
+  const pl = sky.bodies.filter((b) => PLANETS.has(b.id) && b.alt >= 10 && b.alt <= 50).sort((a, b) => a.mag - b.mag)[0];
+  if (pl) return { kind: 'planet', n: pl.n, alt: pl.alt, az: pl.az, target: { type: 'body', id: pl.id }, label: pl.zh, body: pl };
+  // 4. the Milky Way core in a dark sky
+  if (core.alt >= 8 && core.alt <= 45 && sun.alt < -12) return core;
+  // 5. the brightest named star (≤ 1.5 等) at 15–50°
+  let best = null;
+  for (const info of catalog.names.values()) {
+    if (info.mag > 1.5 || (best && info.mag >= best.mag)) continue;
+    const n = starN(catalog, sky.M, info.i);
+    const { alt, az } = altAz(n);
+    if (alt >= 15 && alt <= 50) best = { ...named(info), n, alt, az };
+  }
+  if (best) return { kind: 'star', n: best.n, alt: best.alt, az: best.az, target: { type: 'star', index: best.i }, label: best.zh, info: best };
+  // 6. face due south (due north in the southern hemisphere)
+  const az = sky.lat < 0 ? 0 : 180;
+  return { kind: 'south', n: horizonVec(az), alt: 0, az, target: null, label: null };
+}
+
+function planetLook(b) {
+  const [look, ancient] = PLANET_LOOK[b.id] || ['明亮的', ''];
+  return [look, ancient || (norm360(b.az) < 180 ? '启明' : '长庚')];
+}
+
+export function heroCaption(hero, f, subject = '你') {
+  const S = subject;
+  switch (hero.kind) {
+    case 'light': return lightStarSentence(f, S);
+    case 'moon': return T.hero.moon(S, f.moon.name, pctOf(f.moon.illum), (f.moon.distKm / C_KMS).toFixed(1));
+    case 'planet': {
+      const b = hero.body || f.allPlanets.find((p) => p.id === hero.target?.id);
+      const [look, ancient] = planetLook(b);
+      return T.hero.planet(S, look, b.zh, ancient, fmtLightTime(lightMinutes(b.dist)));
+    }
+    case 'core': return T.hero.core(S);
+    case 'star': return T.hero.star(S, hero.info.zh, hero.info.ly ? fmtLy(hero.info.ly) : '');
+    case 'day': return T.hero.day(S, dirName(f.sun.az));
+    case 'twilight': return T.hero.twilight(f.daylight.zh);
+    default: return T.hero.south(S, norm360(hero.az) < 90 || norm360(hero.az) > 270 ? '北' : '南', fmtCount(f.visible));
+  }
+}
+
+// ---------------------------------------------------------------- tour (S9)
+function markerFor(name, n, alt) {
+  return alt < 0 ? { n, label: T.tour.marker(name, belowDeg(alt)) } : null;
+}
+
+export function buildTour(catalog, f, sky, hero, subject = '你') {
+  const S = subject;
   const items = [];
-  const moonDir = f.moon.up ? `挂在${dirName(f.moon.az)}方的天空` : '还在地平线以下';
-  const phasePct = Math.round(f.moon.illum * 100);
-  items.push({
-    key: 'moon', glyph: `<canvas data-moon width="80" height="80"></canvas>`, title: '那晚的月亮',
-    body: `一轮<em>${f.moon.name}</em>，${moonDir}。`,
-    small: `${f.lunar ? `${f.lunar.yearName}${f.lunar.animal ? f.lunar.animal : ''}年 · ${f.lunar.text} · ` : ''}被照亮 ${phasePct}%`,
-  });
-  items.push({
-    key: 'count', glyph: ICONS.count, title: '头顶的星星',
-    body: `那一刻，地平线之上有 <em>${fmtNum(f.visible)}</em> 颗肉眼可见的恒星。`,
-    small: f.daylight.key === 'night' ? '它们都在深夜里亮着。' : daylightNote(f, subject),
-  });
-  if (f.zenith) {
-    items.push({
-      key: 'zenith', glyph: ICONS.zenith, title: '正上方', target: { type: 'star', index: f.zenith.i },
-      body: `离${subject}头顶最近的亮星，是${f.zenith.conZh ? f.zenith.conZh + '的' : ''}<em>${escapeHtml(f.zenith.zh)}</em>。`,
-      small: `偏离天顶 ${f.zenith.fromZenith.toFixed(1)}°${f.zenith.ly ? ` · 距离地球 ${fmtLy(f.zenith.ly)}` : ''}`,
-    });
-  }
-  items.push({
-    key: 'planets', glyph: ICONS.planet, title: '行星',
-    target: f.planets[0] ? { type: 'body', id: f.planets[0].id } : null,
-    body: f.planets.length
-      ? f.planets.map((p) => `<em>${p.zh}</em>在${dirName(p.az)}方`).join('，') + '。'
-      : '那一刻，五颗亮行星都在地平线以下。',
-    small: f.planets.length ? `${f.planets.length} 颗行星与${subject}同在一片夜空下` : '它们正在地球的另一侧照着别人。',
-  });
-  items.push({
-    key: 'term', glyph: `<b>${f.term.name.slice(0, 1)}</b>`, title: '节气',
-    body: f.term.days <= 0 ? `正是<em>${f.term.name}</em>这一天。` : `<em>${f.term.name}</em>后的第 ${f.term.days + 1} 天。`,
-    small: `太阳黄经 ${f.term.elon.toFixed(1)}°`,
-  });
-  if (f.light) {
-    items.push({
-      key: 'light', glyph: ICONS.light, title: '光年之星', target: { type: 'star', index: f.light.i },
-      body: lightStarSentence(f, subject),
-      small: `${escapeHtml(f.light.zh)} · ${escapeHtml(f.light.conZh || '')} · 距离 ${fmtLy(f.light.ly)}`,
-    });
+  const push = (it) => items.push({ belowHorizon: false, marker: null, target: null, n: null, az: null, alt: null, label: null, ...it });
+
+  // 1. the hero
+  push({ key: hero.kind, hero: true, text: heroCaption(hero, f, S), target: hero.target, n: hero.n, az: hero.az, alt: hero.alt, label: hero.label });
+
+  // 2. the light-year star, if it was not the hero
+  if (hero.kind !== 'light' && f.light) {
+    const L = f.light;
+    push({ key: 'light', text: lightStarSentence(f, S), target: { type: 'star', index: L.i }, n: L.n, az: L.az, alt: L.alt,
+      belowHorizon: L.alt < 0, marker: markerFor(L.zh, L.n, L.alt), label: L.zh });
   }
 
-  el.innerHTML = items.map((it, k) => `
-    <article class="fact" data-k="${k}">
-      <div class="glyph">${it.glyph}</div>
-      <div><h4>${it.title}</h4><p>${it.body}</p>${it.small ? `<small>${it.small}</small>` : ''}</div>
-    </article>`).join('') + slotHtml + `
-    <p class="facts-foot">${person?.unknownTime ? '出生时间未知，按当晚 22:00 绘制。<br>' : ''}恒星取自 HYG 星表，日月行星位置误差小于 1 角分。<br>点击星星，看看它的故事。</p>`;
+  // 3. the Moon (skipped when it was the hero: the caption already said it)
+  if (hero.kind !== 'moon') {
+    const m = f.moon;
+    push({ key: 'moon', text: m.up ? T.tour.moonUp(m.name, pctOf(m.illum), dirName(m.az)) : T.tour.moonDown(m.name),
+      target: { type: 'body', id: 'Moon' }, n: m.n, az: m.az, alt: m.alt, belowHorizon: !m.up, marker: markerFor('月亮', m.n, m.alt), label: '月亮' });
+  }
+
+  // 4. overhead
+  if (f.zenith) {
+    const z = f.zenith;
+    push({ key: 'zenith', text: T.tour.zenith(S, z.conZh, z.zh, z.ly ? fmtLy(z.ly) : ''), target: { type: 'star', index: z.i },
+      n: z.n, az: z.az, alt: z.alt, label: z.zh });
+  }
+
+  // 5. planets (skipped when a planet was the hero)
+  if (hero.kind !== 'planet') {
+    if (f.planets.length) {
+      const p0 = f.planets[0];
+      const list = f.planets.map((p) => T.tour.planetAt(p.zh, dirName(p.az))).join('，');
+      push({ key: 'planets', text: T.tour.planets(list, S, p0.zh, fmtLightTime(lightMinutes(p0.dist))),
+        target: { type: 'body', id: p0.id }, n: p0.n, az: p0.az, alt: p0.alt, label: p0.zh });
+    } else {
+      push({ key: 'planets', text: T.tour.planetsNone });
+    }
+  }
+
+  // 6. the star count (the day / twilight / south heroes already said theirs)
+  if (!['day', 'twilight', 'south'].includes(hero.kind)) push({ key: 'count', text: T.tour.count(fmtCount(f.visible)) });
+
+  // 7. the day: lunar date and solar term
+  push({ key: 'date', text: T.tour.date(f.lunar?.text, f.term.name, f.term.days) });
   return items;
 }
 
-function daylightNote(f, subject) {
-  const d = f.daylight;
-  if (d.key === 'day') return `${subject}出生在白天，太阳在${dirName(f.sun.az)}方。星星都在，只是被阳光藏了起来。`;
-  if (d.key === 'civil') return `那是${d.zh}时分，天边还留着一抹光，最亮的星已经出来了。`;
-  return `${d.zh}，天色正一点点暗下来。`;
+// ---------------------------------------------------------------- 那一夜 plate (S10)
+function countText(f, S) {
+  if (f.daylight.key === 'day') return T.hero.day(S, dirName(f.sun.az));
+  if (f.daylight.key === 'civil') return T.hero.twilight(f.daylight.zh);
+  return T.night.count(fmtCount(f.visible));
 }
 
-export function fmtLy(ly) {
-  if (ly < 20) return `${ly.toFixed(1)} 光年`;
-  return `${Math.round(ly)} 光年`;
+export function nightRows(f, subject = '你') {
+  const S = subject;
+  const L = T.night.labels;
+  const rows = [];
+  const row = (r) => rows.push({ target: null, meta: '', ...r, action: r.target ? T.night.look : '' });
+  if (f.light) {
+    const s = f.light;
+    row({ key: 'light', label: L.light, text: lightStarSentence(f, S), meta: T.night.lightMeta(s.zh, s.conZh, fmtLy(s.ly)), target: { type: 'star', index: s.i } });
+  }
+  const m = f.moon, pct = pctOf(m.illum);
+  const lunarYear = f.lunar?.yearName ? `${f.lunar.yearName}${f.lunar.animal || ''}年` : '';
+  row({ key: 'moon', label: L.moon, text: m.up ? T.night.moonUp(m.name, pct, dirName(m.az)) : T.night.moonDown(m.name, pct),
+    meta: T.night.moonMeta(f.lunar?.text, lunarYear), target: { type: 'body', id: 'Moon' } });
+  if (f.zenith) {
+    const z = f.zenith;
+    row({ key: 'zenith', label: L.zenith, text: T.night.zenith(S, z.conZh, z.zh),
+      meta: T.night.zenithMeta(fmtDeg(z.fromZenith, 1), z.ly ? fmtLy(z.ly) : ''), target: { type: 'star', index: z.i } });
+  }
+  row({ key: 'planets', label: L.planets,
+    text: f.planets.length ? T.night.planets(f.planets.map((p) => T.tour.planetAt(p.zh, dirName(p.az))).join('，')) : T.night.planetsNone,
+    meta: f.planets.map((p) => T.night.planetMeta(p.zh, fmtMag(p.mag))).join(' · '),
+    target: f.planets[0] ? { type: 'body', id: f.planets[0].id } : null });
+  row({ key: 'count', label: L.count, text: countText(f, S), meta: T.night.countMeta });
+  row({ key: 'term', label: L.term, text: T.night.term(f.term.name, f.term.days), meta: f.lunar?.text || '' });
+  return rows;
 }
 
-/** Card text for a tapped star or body. */
-export function describe(catalog, sel, sky, facts) {
+export function nightNote(f) {
+  return f.unknownTime ? T.night.unknownTime : '';
+}
+
+/** Summary line: 亏凸月 · 农历闰五月廿一 · 小暑 · 4,267 颗星 */
+export function factsPeek(f) {
+  return [f.moon.name, f.lunar?.text, f.term.name, `${fmtCount(f.visible)} 颗星`].filter(Boolean).join(' · ');
+}
+
+// ---------------------------------------------------------------- look-to-reveal tags (S9)
+export function tagText(kind, obj, f) {
+  if (kind === 'moon') return T.tour.tagMoon(f.moon.name, pctOf(f.moon.illum));
+  if (kind === 'planet') return T.tour.tagPlanet(obj.zh, fmtLightTime(lightMinutes(obj.dist)));
+  if (kind === 'zenith') return T.tour.tagZenith(starName(obj || f.zenith));
+  if (kind === 'light') {
+    const s = obj || f.light;
+    return T.tour.tagLight(starName(s), Math.round(f.nowYear - s.ly));
+  }
+  return '';
+}
+
+/** Tag candidates that are above the horizon in `sky` (the chrome decides which one is centred). */
+export function tagsFor(catalog, sky, f) {
+  const out = [];
+  if (sky.moon.alt > 0) out.push({ key: 'moon', kind: 'moon', n: sky.moon.n, text: tagText('moon', sky.moon, f), target: { type: 'body', id: 'Moon' } });
+  for (const b of sky.bodies) {
+    if (PLANETS.has(b.id) && b.alt > 0) out.push({ key: b.id, kind: 'planet', n: b.n, text: tagText('planet', b, f), target: { type: 'body', id: b.id } });
+  }
+  for (const [kind, s] of [['zenith', f.zenith], ['light', f.light]]) {
+    if (!s) continue;
+    const n = starN(catalog, sky.M, s.i);
+    if (n[2] > 0 && !out.some((o) => o.target?.index === s.i)) {
+      out.push({ key: kind, kind, n, text: tagText(kind, s, f), target: { type: 'star', index: s.i } });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- name strip (S11)
+export function describe(catalog, sel, sky, f, { subject = '你', pair = null } = {}) {
+  const S = subject;
+  let d;
   if (sel.type === 'star') {
     const info = catalog.names.get(sel.index);
     if (!info) return null;
-    const nowYear = new Date().getFullYear();
+    const n = starN(catalog, sky.M, sel.index);
     let light = '';
     if (info.ly) {
-      const dep = Math.round(nowYear - info.ly);
-      const rel = dep < facts.birthYear ? `，比你出生早 ${facts.birthYear - dep} 年` : dep === facts.birthYear ? '，正是你出生那年' : `，那年你 ${dep - facts.birthYear} 岁`;
-      light = info.ly > 3000 ? '它远得难以测准，光在路上走了几千年。' : `今晚看到的这束光，出发于 <em>${dep < 0 ? `公元前 ${-dep}` : dep} 年</em>${dep > 0 && info.ly < 150 ? rel : ''}。`;
+      if (info.ly > 3000) light = T.strip.far;
+      else {
+        const dep = Math.round(f.nowYear - info.ly);
+        if (dep <= 0) light = T.strip.lightBC(1 - dep);
+        else if (info.ly < 150) {
+          light = dep < f.birthYear ? T.strip.lightBefore(dep, S, f.birthYear - dep)
+            : dep === f.birthYear ? T.strip.lightSame(dep, S)
+              : T.strip.lightAfter(dep, S, dep - f.birthYear);
+        } else light = T.strip.lightPlain(dep);
+      }
     }
-    const note = STAR_NOTES[info.en] || (DIPPER.has(info.en) ? '北斗七星之一。斗柄东指，天下皆春；斗柄南指，天下皆夏。' : '');
-    return {
-      title: escapeHtml(info.zh), sub: info.en ? escapeHtml(info.en) : (info.alt ? escapeHtml(info.alt) : ''),
-      meta: [info.conZh, `亮度 ${info.mag.toFixed(1)} 等`, info.ly ? `距离 ${fmtLy(info.ly)}` : ''].filter(Boolean).join(' · '),
-      text: [note, light].filter(Boolean).join(''),
+    const note = STAR_NOTES[info.en] || (DIPPER.has(info.en) ? T.strip.dipper : '');
+    d = {
+      name: starName(info), latin: info.en || '', n,
+      meta: T.strip.starMeta(info.conZh, fmtMag(info.mag), info.ly ? fmtLy(info.ly) : ''),
+      body: note + light,
     };
+  } else {
+    const b = sky.bodies.find((x) => x.id === sel.id);
+    if (!b) return null;
+    const lm = lightMinutes(b.dist);
+    if (b.id === 'Moon') {
+      const km = Math.round((b.dist * AU_KM) / 100) * 100;
+      d = { name: T.strip.moonName, latin: '', n: b.n,
+        meta: T.strip.moonMeta(sky.moonPhase.name, pctOf(sky.moonPhase.illum), fmtCount(km)),
+        body: T.strip.moonStory((lm * 60).toFixed(1), S, f.lunar?.text) };
+    } else if (b.id === 'Sun') {
+      const sec = Math.round(lm * 60);
+      d = { name: T.strip.sunName, latin: '', n: b.n,
+        meta: T.strip.sunMeta(fmtDeg(b.alt, 0), dirName(b.az)),
+        body: T.strip.sunStory(Math.floor(sec / 60), sec % 60, S) };
+    } else {
+      d = { name: b.zh, latin: b.id, n: b.n,
+        meta: T.strip.planetMeta(fmtMag(b.mag), b.dist.toFixed(2)),
+        body: (BODY_NOTES[b.id] || '') + T.strip.planetLight(S, b.zh, fmtLightTime(lm)) };
+    }
   }
-  const b = sky.bodies.find((x) => x.id === sel.id);
-  if (!b) return null;
-  const lightMin = (b.dist * AU_KM) / 299792.458 / 60;
-  if (b.id === 'Moon') {
-    return {
-      title: '月亮', sub: sky.moonPhase.name,
-      meta: `被照亮 ${Math.round(sky.moonPhase.illum * 100)}% · 距离 ${fmtNum(b.dist * AU_KM)} 公里`,
-      text: `月光从月面出发，只要 ${(lightMin * 60).toFixed(1)} 秒就能落进你的眼睛。${facts.lunar ? `那天是${facts.lunar.text}。` : ''}`,
-    };
+  const { alt, az } = altAz(d.n);
+  const lead = (alt < 0 ? T.strip.below(d.name, belowDeg(alt)) : '') + pairUp(catalog, sel, pair);
+  // The strip clamps at 4 lines. The light sentences carry their own line break ('\n'); with a lead line
+  // in front (below the horizon / two people) that break would push the story past 4 lines, so then the
+  // same words flow as one paragraph.
+  const body = lead ? d.body.replace(/\n/g, '') : d.body;
+  return { name: d.name, latin: d.latin, meta: d.meta, story: lead + body, lead, below: alt < 0, alt, az, n: d.n };
+}
+
+function pairUp(catalog, sel, pair) {
+  if (!pair || !pair.sa || !pair.sb) return '';
+  let upA, upB;
+  if (sel.type === 'star') {
+    upA = starN(catalog, pair.sa.M, sel.index)[2] > 0;
+    upB = starN(catalog, pair.sb.M, sel.index)[2] > 0;
+  } else {
+    const a = pair.sa.bodies.find((x) => x.id === sel.id), b = pair.sb.bodies.find((x) => x.id === sel.id);
+    if (!a || !b) return '';
+    upA = a.alt > 0; upB = b.alt > 0;
   }
-  if (b.id === 'Sun') {
-    return {
-      title: '太阳', sub: 'Sun', meta: `高度 ${b.alt.toFixed(1)}° · ${dirName(b.az)}方`,
-      text: `阳光走了 ${Math.floor(lightMin)} 分 ${Math.round((lightMin % 1) * 60)} 秒才来到你身边。`,
-    };
-  }
-  return {
-    title: b.zh, sub: b.id, meta: `亮度 ${b.mag.toFixed(1)} 等 · 距离 ${b.dist.toFixed(2)} 天文单位`,
-    text: `${BODY_NOTES[b.id] || ''}那一刻你看到的${b.zh}，是 <em>${lightMin < 60 ? `${Math.round(lightMin)} 分钟` : `${(lightMin / 60).toFixed(1)} 小时`}</em>前的它。`,
-  };
+  if (upA && upB) return T.strip.pairBoth;
+  if (upA) return T.strip.pairOnly(pair.nameA);
+  if (upB) return T.strip.pairOnly(pair.nameB);
+  return '';
 }

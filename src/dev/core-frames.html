@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>core · frames</title>
+<script type="importmap">{"imports":{"astronomy-engine":"/node_modules/astronomy-engine/esm/astronomy.js","qrcode-generator":"/node_modules/qrcode-generator/dist/qrcode.mjs"}}</script>
+<style>html, body { margin: 0; background: #030407; }</style>
+</head>
+<body>
+<!-- Dev page (not shipped): renders bare-sky frames through the real renderer and camera for visual
+     review. Driven by tools/dev/core-frames.mjs via window.renderFrame(cfg) → PNG data URL. -->
+<script type="module">
+import { Camera, altForHorizonAt, ease } from '../js/camera.js';
+import { SkyRenderer } from '../js/renderer.js';
+import { loadCatalog } from '../js/catalog.js';
+import { skyState, skyMatrix, radec, mul, altAz, SIDEREAL_DAY_MS } from '../js/astro.js';
+
+const catalog = await loadCatalog('/data/', '');
+await catalog.deepReady;
+const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/** Azimuth/altitude of the Milky Way core at a moment and place. */
+function core(date, lat, lon) {
+  const M = skyMatrix(date, lat, lon);
+  return altAz(mul(M, radec(266.4, -29.0)));
+}
+
+window.coreInfo = (cfg) => {
+  const date = new Date(cfg.date);
+  return { core: core(date, cfg.lat, cfg.lon), deep: catalog.deep?.count ?? 0, stars: catalog.stars.count };
+};
+
+window.renderFrame = async (cfg) => {
+  const { w, h, dpr = 3 } = cfg;
+  const date = new Date(cfg.date);
+  const sky = skyState(date, cfg.lat, cfg.lon);
+  const cam = new Camera();
+  cam.setSize(w, h);
+  let az = cfg.view.az;
+  if (az === 'core') az = core(date, cfg.lat, cfg.lon).az;
+  const alt = cfg.view.alt ?? altForHorizonAt(cfg.view.horizon ?? 0.82, cfg.view.fov);
+  Object.assign(cam, { az, alt, fov: cfg.view.fov, Pfixed: cfg.view.Pfixed ?? null });
+  cam.update();
+  const canvas = document.createElement('canvas');
+  const r = new SkyRenderer(canvas, catalog, { preserve: true });
+  r.resize(w, h, dpr);
+  const sunAlt = sky.sun.alt;
+  const base = {
+    cam, M: sky.M, time: 12.3, sun: sky.sun.n, moon: sky.moon.n,
+    moonIllum: sky.moonPhase.illum * (sky.moon.alt > -2 ? 1 : 0),
+    twilight: smooth(-18, -2, sunAlt) * 0.92, day: smooth(-3, 10, sunAlt) * 0.6,
+    reveal: 6.6, mwAmt: 1, starGain: 1, dustGain: 1,
+    sizeGain: Math.max(0.92, Math.min(1.15, Math.pow(72 / cam.fov, 0.1))),
+    crisp: 1, sel: -1, twinkle: 1, terrainH: 0.05, bg: [3 / 255, 4 / 255, 7 / 255],
+    exposure: 1, dither: 0.004, vignette: 0.12, listenAz: 0, listenOn: 0, zB: [0, 0, 0], sharedDim: 1, sharedT: 0, trail: null,
+    ...(cfg.state || {}),
+  };
+  if (cfg.listen) { base.listenAz = cam.az - cfg.listen.behind; base.listenOn = 1; r.listenPrev = base.listenAz - 0.1; }
+  if (cfg.rewind) {
+    // replay the rewind (spec S4): B(u) = cubic-bezier(.55,0,.12,1) over 6.4 s at 60 fps, light
+    // deposited per degree of rotation with τ 0.6 s, ≤ 12 sub-steps per frame
+    const B = ease.bezier(0.55, 0, 0.12, 1);
+    const target = date.getTime();
+    const D = 4 * SIDEREAL_DAY_MS + 0.37 * SIDEREAL_DAY_MS;
+    const trail = { on: true, fade: 0.95, opacity: 1, Ms: [], clear: true, gain: 0.24 };
+    const fps = 60, u0 = cfg.rewind.from, u1 = cfg.rewind.to;
+    let lastT = null, s = null;
+    for (let f = 0; ; f++) {
+      const u = u0 + f / fps / 6.4;
+      if (u > u1) break;
+      const T = target + (1 - B(u)) * D;
+      const prevT = lastT ?? T;
+      const spinDeg = Math.abs(prevT - T) / SIDEREAL_DAY_MS * 360;
+      const n = Math.max(1, Math.min(12, Math.ceil(spinDeg / 0.6)));
+      const Ms = [];
+      for (let i = 1; i <= n; i++) Ms.push(skyMatrix(new Date(prevT + (T - prevT) * (i / n)), cfg.lat, cfg.lon));
+      lastT = T;
+      Object.assign(trail, { Ms, clear: f === 0, fade: Math.exp(-1 / fps / 0.6), gain: 0.24 * Math.min(1, spinDeg / n / 0.6) });
+      s = skyState(new Date(T), cfg.lat, cfg.lon);
+      r.render({ ...base, M: s.M, time: f / fps, sun: s.sun.n, moon: s.moon.n, moonIllum: 0, crisp: 0.18, mwAmt: 0.6, bodies: 0,
+        bg: [2 / 255, 3 / 255, 5 / 255], trail, twilight: 0, day: 0 });
+    }
+  } else {
+    r.render(base);
+  }
+  const url = canvas.toDataURL('image/png');
+  r.dispose();
+  return { url, cam: { az: cam.az, alt: cam.alt, fov: cam.fov, P: cam.P, S: cam.S } };
+};
+window.framesReady = true;
+</script>
+</body>
+</html>

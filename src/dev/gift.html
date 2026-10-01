@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>gift · dev</title>
+<link rel="icon" href="data:,">
+<script type="importmap">{"imports":{"astronomy-engine":"/node_modules/astronomy-engine/esm/astronomy.js","qrcode-generator":"/node_modules/qrcode-generator/dist/qrcode.mjs"}}</script>
+<style>
+  @font-face { font-family: "Nawan Serif"; font-weight: 400; font-display: block; src: url(../assets/fonts/nawan-serif-400.woff2) format("woff2"); }
+  @font-face { font-family: "Cormorant Lining"; font-weight: 500; font-display: swap; src: url(../assets/fonts/cormorant-lining-500.woff2) format("woff2"); }
+  html, body { margin: 0; background: #030407; }
+</style>
+</head>
+<body>
+<!-- Dev page (not shipped): renders 星空贺卡 mockups through the real PosterStudio. -->
+<script type="module">
+import { PosterStudio } from '../js/poster.js';
+import { loadCatalog } from '../js/catalog.js';
+import { poemForPerson } from '../js/poems.js';
+import { T } from '../js/copy.js';
+const catalog = await loadCatalog('/data/', '');
+await catalog.deepReady;
+const studio = new PosterStudio(catalog);
+const city = (name, region, lat, lon, tz) => ({ name, region, lat, lon, tz });
+window.FRIEND = { name: '小红', date: '2000-05-20', time: '23:10', unknownTime: false, city: city('成都', '四川', 30.66, 104.07, 'Asia/Shanghai') };
+window.renderGift = async (cfg) => {
+  const friend = cfg.friend || window.FRIEND;
+  const message = cfg.message === 'poem' ? poemForPerson(friend, cfg.step || 0).poem : cfg.message;
+  const res = await studio.render({ format: 'card', style: cfg.style || 'night', person: friend, subjectName: friend.name,
+    gift: { to: friend.name, from: '小明', greeting: cfg.greeting ?? T.gift.greetingDefault, message }, screenCSSW: 390 });
+  return res.dataUrl;
+};
+window.giftReady = true;
+</script>
+</body>
+</html>

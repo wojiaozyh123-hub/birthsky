@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>core · projection agreement</title>
+<script type="importmap">{"imports":{"astronomy-engine":"/node_modules/astronomy-engine/esm/astronomy.js","qrcode-generator":"/node_modules/qrcode-generator/dist/qrcode.mjs"}}</script>
+<style>html, body { margin: 0; background: #030407; color: #efe8da; font: 12px/1.5 -apple-system, sans-serif; } canvas { display: block; }</style>
+</head>
+<body>
+<!-- Dev page (not shipped): compares the GLSL projection chunk with camera.js.
+     window.coreTests.* are driven by tools/dev/test-projection.mjs. -->
+<script type="module">
+import { Camera, terrainAtRad } from '../js/camera.js';
+import { SkyRenderer, GLSL_CAMERA, GLSL_TERRAIN, GLSL_PHOTOMETRY } from '../js/renderer.js';
+
+const ok = { ready: false };
+window.coreTests = ok;
+
+function setCameraUniforms(gl, prog, cam, H, dpr = 1) {
+  const u = (n) => gl.getUniformLocation(prog, n);
+  gl.uniform2f(u('uRes'), cam.w * dpr, H * dpr);
+  gl.uniform2f(u('uCenter'), cam.cx * dpr, (H - cam.cy) * dpr);
+  gl.uniform1f(u('uScale'), cam.S * dpr);
+  gl.uniform1f(u('uP'), cam.P);
+  gl.uniform3f(u('uF'), ...cam.f);
+  gl.uniform3f(u('uU'), ...cam.u);
+  gl.uniform3f(u('uR'), ...cam.r);
+}
+function compile(gl, vs, fs, tf) {
+  const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+  if (tf) gl.transformFeedbackVaryings(p, tf, gl.INTERLEAVED_ATTRIBS);
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+const canvas = document.createElement('canvas');
+canvas.width = 8; canvas.height = 8;
+const gl = canvas.getContext('webgl2');
+
+/** Run a GLSL ES 3.00 vertex function over `inputs` (Float32Array, `inSize` per item) via transform feedback. */
+function capture(body, inputs, inSize, outSize, setUniforms) {
+  const vs = `#version 300 es
+precision highp float;
+${GLSL_CAMERA}
+${GLSL_TERRAIN}
+${GLSL_PHOTOMETRY}
+in ${inSize === 1 ? 'float' : `vec${inSize}`} aIn;
+out ${outSize === 1 ? 'float' : `vec${outSize}`} vOut;
+void main() { ${body} gl_Position = vec4(0.0, 0.0, 0.0, 1.0); gl_PointSize = 1.0; }`;
+  const fs = `#version 300 es
+precision highp float; out vec4 o; void main() { o = vec4(0.0); }`;
+  const p = compile(gl, vs, fs, ['vOut']);
+  gl.useProgram(p);
+  setUniforms?.(p);
+  const n = inputs.length / inSize;
+  const inBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, inBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, inputs, gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(p, 'aIn');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, inSize, gl.FLOAT, false, 0, 0);
+  const outBuf = gl.createBuffer();
+  gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, outBuf);
+  gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, n * outSize * 4, gl.STATIC_READ);
+  const tfo = gl.createTransformFeedback();
+  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tfo);
+  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, outBuf);
+  gl.enable(gl.RASTERIZER_DISCARD);
+  gl.beginTransformFeedback(gl.POINTS);
+  gl.drawArrays(gl.POINTS, 0, n);
+  gl.endTransformFeedback();
+  gl.disable(gl.RASTERIZER_DISCARD);
+  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+  const out = new Float32Array(n * outSize);
+  gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, outBuf);
+  gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, out);
+  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+  gl.deleteBuffer(inBuf); gl.deleteBuffer(outBuf); gl.deleteProgram(p);
+  return out;
+}
+
+function mkCam(c) {
+  const cam = new Camera();
+  Object.assign(cam, { w: 390, h: 844, Pfixed: null, ...c });
+  return cam.update();
+}
+function rng(seed) { return () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }; }
+
+/** GLSL proj() vs camera.project for random directions in view. */
+ok.proj = (c) => {
+  const cam = mkCam(c), r = rng(11), dirs = [];
+  while (dirs.length < 3000 * 3) {
+    const n = cam.unproject(r() * cam.w * 1.2 - cam.w * 0.1, r() * cam.h * 1.2 - cam.h * 0.1);
+    dirs.push(...n);
+  }
+  const inp = new Float32Array(dirs);
+  const out = capture('float ok; vec2 p = proj(aIn, ok); vOut = vec3(p, ok);', inp, 3, 3, (p) => setCameraUniforms(gl, p, cam, cam.h));
+  let worst = 0, culled = 0;
+  for (let i = 0; i < inp.length / 3; i++) {
+    const n = [inp[i * 3], inp[i * 3 + 1], inp[i * 3 + 2]];
+    const q = cam.project(n, {});
+    if (!q) { culled++; continue; }
+    const dx = out[i * 3] - q.x, dy = out[i * 3 + 1] - (cam.h - q.y);
+    worst = Math.max(worst, Math.hypot(dx, dy));
+  }
+  return { cam: { ...c, P: cam.P, S: cam.S }, n: inp.length / 3, culled, worstPx: worst };
+};
+
+/** GLSL projScale() vs camera.pxPerRad. */
+ok.scale = (c) => {
+  const cam = mkCam(c), r = rng(5), d = [];
+  for (let i = 0; i < 2000; i++) d.push(-0.2 + 1.2 * r());
+  const inp = new Float32Array(d);
+  const out = capture('vOut = projScale(aIn);', inp, 1, 1, (p) => setCameraUniforms(gl, p, cam, cam.h));
+  let worst = 0;
+  for (let i = 0; i < inp.length; i++) {
+    // a direction with this d: tilt f toward u
+    const dd = inp[i], s = Math.sqrt(1 - dd * dd);
+    const n = [0, 1, 2].map((k) => cam.f[k] * dd + cam.u[k] * s);
+    const js = cam.pxPerRad(n);
+    worst = Math.max(worst, Math.abs(out[i] - js) / js);
+  }
+  return { cam: { ...c, P: cam.P }, worstRel: worst };
+};
+
+/** GLSL terrain() vs camera.terrainAtRad at many azimuths. */
+ok.terrain = (H = 0.05) => {
+  const N = 40000, az = new Float32Array(N);
+  for (let i = 0; i < N; i++) az[i] = -Math.PI + (2 * Math.PI) * (i + 0.37) / N;
+  const out = capture('vOut = terrain(aIn);', az, 1, 1, (p) => gl.uniform1f(gl.getUniformLocation(p, 'uTerrainH'), H));
+  let worst = 0, over1e5 = 0, maxH = 0;
+  for (let i = 0; i < N; i++) {
+    const e = Math.abs(out[i] - terrainAtRad(az[i], H));
+    worst = Math.max(worst, e);
+    if (e > 1e-5) over1e5++;
+    maxH = Math.max(maxH, out[i]);
+  }
+  // wrap: the ridge is continuous across az = ±π
+  const wrapJump = Math.abs(terrainAtRad(Math.PI - 1e-9, H) - terrainAtRad(-Math.PI + 1e-9, H));
+  return { N, worstRad: worst, over1e5, maxDeg: maxH * 57.29578, wrapJump };
+};
+
+/** GLSL unproj() (fragment shader, float target) vs camera.unproject at pixel centres. */
+ok.unproj = (c) => {
+  const cam = mkCam(c);
+  const W = cam.w, H = cam.h;
+  if (!gl.getExtension('EXT_color_buffer_float')) return { skipped: 'no float targets' };
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const p = compile(gl, `#version 300 es
+in vec2 aPos; void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`, `#version 300 es
+precision highp float;
+${GLSL_CAMERA}
+out vec4 o;
+void main() { float c; vec3 v = unproj(gl_FragCoord.xy, c); o = vec4(v, c); }`);
+  gl.useProgram(p);
+  setCameraUniforms(gl, p, cam, H);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(p, 'aPos');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  gl.viewport(0, 0, W, H);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  const px = new Float32Array(W * H * 4);
+  gl.readPixels(0, 0, W, H, gl.RGBA, gl.FLOAT, px);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.deleteFramebuffer(fbo); gl.deleteTexture(tex); gl.deleteProgram(p);
+  let worstRad = 0, worstPx = 0, n = 0, bad = 0;
+  for (let j = 0; j < H; j += 3) {
+    for (let i = 0; i < W; i += 3) {
+      const o = (j * W + i) * 4;
+      const g = [px[o], px[o + 1], px[o + 2]];
+      const js = cam.unproject(i + 0.5, H - (j + 0.5));
+      const l = Math.hypot(...g);
+      if (!(l > 0.5)) { bad++; continue; }
+      const cr = [g[1] * js[2] - g[2] * js[1], g[2] * js[0] - g[0] * js[2], g[0] * js[1] - g[1] * js[0]];
+      const ang = Math.atan2(Math.hypot(...cr), g[0] * js[0] + g[1] * js[1] + g[2] * js[2]);
+      worstRad = Math.max(worstRad, ang);
+      worstPx = Math.max(worstPx, ang * cam.pxPerRad(js));
+      n++;
+    }
+  }
+  return { cam: { ...c, P: cam.P }, n, bad, worstRad, worstPx: bad ? Infinity : worstPx };
+};
+
+/**
+ * End to end through the real SkyRenderer: a grid of synthetic stars placed by camera.unproject at
+ * known pixels; the sprite centroids read back from the canvas must sit where camera.project says.
+ */
+ok.stars = (c, { dpr = 1, sizeGain = 3 } = {}) => {
+  const cam = mkCam(c);
+  const W = cam.w, H = cam.h;
+  const grid = [];
+  for (let gy = 0; gy < 7; gy++) for (let gx = 0; gx < 5; gx++) grid.push([W * (0.12 + 0.19 * gx), H * (0.08 + 0.14 * gy)]);
+  const pos = new Float32Array(grid.length * 3), mag = new Float32Array(grid.length), color = new Float32Array(grid.length * 3).fill(1);
+  grid.forEach(([x, y], i) => { pos.set(cam.unproject(x, y), i * 3); mag[i] = 3.0; });
+  const mw = document.createElement('canvas'); mw.width = 4; mw.height = 2;
+  const catalog = { stars: { count: grid.length, pos, mag, color }, dust: { count: 0, pos: new Float32Array(0), mag: new Float32Array(0), color: new Float32Array(0) }, deep: null, mwImg: mw };
+  const cv = document.createElement('canvas');
+  const r = new SkyRenderer(cv, catalog, { preserve: true });
+  r.resize(W, H, dpr);
+  const I3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  r.render({ cam, M: I3, time: 0, sun: [0, 0, -1], moon: [0, 0, -1], moonIllum: 0, twilight: 0, day: 0, reveal: 6.6, mwAmt: 0,
+    starGain: 1, dustGain: 0, sizeGain, crisp: 1, sel: -1, twinkle: 0, terrainH: 0, bg: [0, 0, 0], exposure: 0, dither: 0, vignette: 0,
+    listenAz: 0, listenOn: 0, zB: [0, 0, 0], sharedDim: 1, sharedT: 0, trail: null });
+  const g2 = r.gl, Wd = cv.width, Hd = cv.height;
+  const px = new Uint8Array(Wd * Hd * 4);
+  g2.readPixels(0, 0, Wd, Hd, g2.RGBA, g2.UNSIGNED_BYTE, px);
+  r.dispose();
+  let worst = 0, found = 0, hidden = 0;
+  const rows = [];
+  grid.forEach(([x, y], i) => {
+    const n = [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]];
+    const q = cam.project(n, {});
+    if (n[2] < 0.01) { hidden++; return; } // below the horizon: culled by the renderer
+    const ex = q.x * dpr, ey = q.y * dpr;
+    let sw = 0, sx = 0, sy = 0;
+    const R = Math.ceil(9 * dpr);
+    for (let yy = Math.floor(ey) - R; yy <= Math.floor(ey) + R; yy++) {
+      for (let xx = Math.floor(ex) - R; xx <= Math.floor(ex) + R; xx++) {
+        if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) continue;
+        const o = ((Hd - 1 - yy) * Wd + xx) * 4;
+        const v = px[o] + px[o + 1] + px[o + 2];
+        sw += v; sx += v * (xx + 0.5); sy += v * (yy + 0.5);
+      }
+    }
+    if (!sw) return;
+    found++;
+    const e = Math.hypot(sx / sw - ex, sy / sw - ey) / dpr;
+    worst = Math.max(worst, e);
+    rows.push(e);
+  });
+  return { cam: { ...c, P: cam.P }, stars: grid.length, found, hidden, worstCssPx: worst };
+};
+
+/** GLSL extinction() vs Kasten–Young in JS. */
+ok.extinction = () => {
+  const alts = new Float32Array([...Array(91)].map((_, i) => i * Math.PI / 180));
+  const out = capture('vOut = extinction(aIn);', alts, 1, 1);
+  const ky = (a) => { const z = 90 - a / Math.PI * 180; const X = 1 / (Math.cos(z * Math.PI / 180) + 0.50572 * Math.pow(96.07995 - z, -1.6364)); return Math.min(3.5, 0.28 * (X - 1)); };
+  let worst = 0;
+  for (let i = 0; i < alts.length; i++) worst = Math.max(worst, Math.abs(out[i] - ky(alts[i])));
+  return { worst, at: { 0: out[0], 5: out[5], 10: out[10], 20: out[20], 30: out[30], 60: out[60], 90: out[90] } };
+};
+
+/** Render synthetic stars (NEU directions, mags) through the real renderer; flux summed around each. */
+function renderSynthetic(cam, dirs, mags, state, { dpr = 2, seeds, starGain = 0.06 } = {}) {
+  const N = dirs.length;
+  const pos = new Float32Array(N * 3), mag = new Float32Array(N), color = new Float32Array(N * 3).fill(1);
+  dirs.forEach((n, i) => { pos.set(n, i * 3); mag[i] = mags[i]; });
+  const mw = document.createElement('canvas'); mw.width = 4; mw.height = 2;
+  const catalog = { stars: { count: N, pos, mag, color }, dust: { count: 0, pos: new Float32Array(0), mag: new Float32Array(0), color: new Float32Array(0) }, deep: null, mwImg: mw };
+  const cv = document.createElement('canvas');
+  const r = new SkyRenderer(cv, catalog, { preserve: true });
+  r.resize(cam.w, cam.h, dpr);
+  if (seeds) { // the renderer draws seeds from mulberry32(3); overwrite them for the test
+    const gl2 = r.gl, buf = new Float32Array(N * 10);
+    for (let i = 0; i < N; i++) { buf.set(pos.subarray(i * 3, i * 3 + 3), i * 10); buf.set([1, 1, 1], i * 10 + 3); buf[i * 10 + 6] = mag[i]; buf[i * 10 + 7] = seeds[i]; buf[i * 10 + 8] = 0; buf[i * 10 + 9] = i; }
+    gl2.bindBuffer(gl2.ARRAY_BUFFER, r.starBuf); gl2.bufferData(gl2.ARRAY_BUFFER, buf, gl2.STATIC_DRAW);
+  }
+  const I3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  const flux = (st) => {
+    r.render({ cam, M: I3, time: 0, sun: [0, 0, -1], moon: [0, 0, -1], moonIllum: 0, twilight: 0, day: 0, reveal: 6.6, mwAmt: 0,
+      starGain, dustGain: 0, sizeGain: 1, crisp: 1, sel: -1, twinkle: 0, terrainH: 0, bg: [0, 0, 0], exposure: 0, dither: 0, vignette: 0,
+      listenAz: 0, listenOn: 0, zB: [0, 0, 0], sharedDim: 1, sharedT: 0, trail: null, ...st });
+    const g2 = r.gl, Wd = cv.width, Hd = cv.height;
+    const px = new Uint8Array(Wd * Hd * 4);
+    g2.readPixels(0, 0, Wd, Hd, g2.RGBA, g2.UNSIGNED_BYTE, px);
+    // light before the film curve (I = 0.93·(1 − e^−x)), from the red channel (white and ember stars
+    // both keep red at 1): linear in the shader's gain
+    const lin = (v) => -Math.log(Math.max(1e-4, 1 - v / (255 * 0.93)));
+    return dirs.map((n) => {
+      const q = cam.project(n, {});
+      if (!q) return 0;
+      let sum = 0, rr = 0, bb = 0;
+      const ex = q.x * dpr, ey = q.y * dpr, R = 14;
+      for (let yy = Math.floor(ey) - R; yy <= Math.floor(ey) + R; yy++) for (let xx = Math.floor(ex) - R; xx <= Math.floor(ex) + R; xx++) {
+        if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) continue;
+        const o = ((Hd - 1 - yy) * Wd + xx) * 4;
+        sum += lin(px[o]); rr += px[o]; bb += px[o + 2];
+      }
+      return { sum, warm: bb ? rr / bb : 0 };
+    });
+  };
+  const res = state.map(flux);
+  r.dispose();
+  return res;
+}
+
+/** Listening: stars ≤3.4 等 just past the centre line flare (×2.2 peak) with an ember tint; others don't. */
+ok.listen = () => {
+  const cam = mkCam({ az: 200, alt: 30, fov: 84 });
+  const offs = [-3, -0.5, 0.3, 1, 2, 4, 8, 12];      // degrees of azimuth past the line (negative: not yet crossed)
+  const dirs = [], mags = [];
+  offs.forEach((d, i) => {
+    const az = (200 - d) * Math.PI / 180, alt = (22 + i * 2.5) * Math.PI / 180;
+    dirs.push([Math.cos(alt) * Math.cos(az), Math.cos(alt) * Math.sin(az), Math.sin(alt)]); mags.push(3.3);
+  });
+  // a faint star (4.0) just past the line: no flare
+  { const az = 199 * Math.PI / 180, alt = 45 * Math.PI / 180; dirs.push([Math.cos(alt) * Math.cos(az), Math.cos(alt) * Math.sin(az), Math.sin(alt)]); mags.push(4.0); }
+  const [off, on] = renderSynthetic(cam, dirs, mags, [{ listenOn: 0 }, { listenOn: 1, listenAz: 200 }]);
+  return { offs: [...offs, 'faint 1°'], gain: on.map((o, i) => o.sum / Math.max(1e-9, off[i].sum)), warm: on.map((o, i) => o.warm / Math.max(1e-6, off[i].warm)) };
+};
+
+/** Two skies: below B's horizon stars dim to sharedDim, one by one with the seed; above, untouched. */
+ok.shared = () => {
+  // facing west; B's zenith tilted 30° toward the east, so in the west B's horizon is at alt 30°
+  const cam = mkCam({ az: 270, alt: 32, fov: 72 });
+  const zB = [0, 0.5, Math.sqrt(0.75)];
+  const dirs = [], mags = [], seeds = [];
+  const alts = [14, 19, 24, 27, 38, 46], azs = [262, 266, 270, 274, 266, 276];
+  for (let i = 0; i < 6; i++) {
+    const az = azs[i] * Math.PI / 180, alt = alts[i] * Math.PI / 180;
+    dirs.push([Math.cos(alt) * Math.cos(az), Math.cos(alt) * Math.sin(az), Math.sin(alt)]); mags.push(3.5); seeds.push([0.05, 0.5, 0.95, 0.3, 0.2, 0.8][i]);
+  }
+  const below = dirs.map((n) => n[0] * zB[0] + n[1] * zB[1] + n[2] * zB[2] < 0);
+  const st = (t) => ({ zB, sharedDim: 0.25, sharedT: t });
+  const [base, half, full, off] = renderSynthetic(cam, dirs, mags, [{}, st(0.5), st(1), { zB, sharedDim: 1, sharedT: 1 }], { seeds });
+  return { below, seeds, half: half.map((o, i) => o.sum / base[i].sum), full: full.map((o, i) => o.sum / base[i].sum), off: off.map((o, i) => o.sum / base[i].sum) };
+};
+
+/** The renderer on a WebGL1 context (GLSL ES 1.00 everywhere): compiles, links and draws. */
+ok.webgl1 = () => {
+  const cam = mkCam({ az: 180, alt: 30, fov: 72 });
+  const cv = document.createElement('canvas');
+  const orig = cv.getContext.bind(cv);
+  cv.getContext = (type, attrs) => (type === 'webgl2' ? null : orig(type, attrs));
+  const n = 50, pos = new Float32Array(n * 3), mag = new Float32Array(n).fill(2), color = new Float32Array(n * 3).fill(1);
+  for (let i = 0; i < n; i++) pos.set(cam.unproject(40 + (i % 10) * 32, 60 + Math.floor(i / 10) * 100), i * 3);
+  const mw = document.createElement('canvas'); mw.width = 4; mw.height = 2;
+  const catalog = { stars: { count: n, pos, mag, color }, dust: { count: 0, pos: new Float32Array(0), mag: new Float32Array(0), color: new Float32Array(0) }, deep: null, mwImg: mw };
+  try {
+    const r = new SkyRenderer(cv, catalog, { preserve: true });
+    r.resize(cam.w, cam.h, 1);
+    const I3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    const st = { cam, M: I3, time: 0, sun: [0, 0, -1], moon: [0, 0, -1], moonIllum: 0, twilight: 0, day: 0, reveal: 6.6, mwAmt: 1,
+      starGain: 1, dustGain: 1, sizeGain: 1, crisp: 1, sel: -1, twinkle: 1, terrainH: 0.05, bg: [3 / 255, 4 / 255, 7 / 255], exposure: 1, dither: 0.004, vignette: 0.12,
+      listenAz: 180, listenOn: 1, zB: [0, 0.5, 0.866], sharedDim: 0.25, sharedT: 0.5, trail: { on: true, fade: 0.95, opacity: 1, Ms: [I3], clear: true, gain: 0.24 } };
+    r.render(st);
+    r.render({ ...st, trail: { on: true, fade: 0.95, opacity: 1, Ms: [I3, I3], clear: false, gain: 0.24 } });
+    const gl1 = r.gl;
+    const px = new Uint8Array(4);
+    gl1.readPixels(Math.round(cam.w / 2), Math.round(cam.h * 0.9), 1, 1, gl1.RGBA, gl1.UNSIGNED_BYTE, px);
+    const res = { isGL2: r.isGL2, error: gl1.getError(), sky: [...px] };
+    r.dispose();
+    return res;
+  } catch (e) { return { failed: String(e).slice(0, 400) }; }
+};
+
+/** Export tiling: two half-height tiles via setTileOffset reproduce the full frame. */
+ok.tiles = () => {
+  const cam = mkCam({ az: 180, alt: 25, fov: 72 });
+  const n = 400, pos = new Float32Array(n * 3), mag = new Float32Array(n), color = new Float32Array(n * 3).fill(1);
+  const r0 = rng(3);
+  for (let i = 0; i < n; i++) { pos.set(cam.unproject(r0() * 390, r0() * 844), i * 3); mag[i] = 1 + r0() * 5; }
+  const mw = document.createElement('canvas'); mw.width = 4; mw.height = 2;
+  const catalog = { stars: { count: n, pos, mag, color }, dust: { count: 0, pos: new Float32Array(0), mag: new Float32Array(0), color: new Float32Array(0) }, deep: null, mwImg: mw };
+  const I3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  const st = { cam, M: I3, time: 0, sun: [0, 0, -1], moon: [0, 0, -1], moonIllum: 0, twilight: 0, day: 0, reveal: 6.6, mwAmt: 0,
+    starGain: 1, dustGain: 0, sizeGain: 1, crisp: 1, sel: -1, twinkle: 0, terrainH: 0.05, bg: [3 / 255, 4 / 255, 7 / 255], exposure: 1, dither: 0, vignette: 0.12,
+    listenAz: 0, listenOn: 0, zB: [0, 0, 0], sharedDim: 1, sharedT: 0, trail: null };
+  const dpr = 2;
+  const grab = (w, h, dy) => {
+    const cv = document.createElement('canvas');
+    const r = new SkyRenderer(cv, catalog, { preserve: true });
+    r.resize(w, h, dpr);
+    r.setTileOffset(0, dy);
+    r.render(st);
+    const px = new Uint8Array(cv.width * cv.height * 4);
+    r.gl.readPixels(0, 0, cv.width, cv.height, r.gl.RGBA, r.gl.UNSIGNED_BYTE, px);
+    r.dispose();
+    return { px, W: cv.width, H: cv.height };
+  };
+  const full = grab(390, 844, 0), top = grab(390, 422, 0), bot = grab(390, 422, 422 * dpr);
+  let worst = 0;
+  for (const [tile, y0] of [[top, 0], [bot, 422 * dpr]]) {
+    for (let y = 0; y < tile.H; y++) for (let x = 0; x < tile.W; x++) {
+      // rows count from the bottom in readPixels
+      const fy = full.H - 1 - (y0 + (tile.H - 1 - y));
+      for (let c = 0; c < 3; c++) worst = Math.max(worst, Math.abs(tile.px[(y * tile.W + x) * 4 + c] - full.px[(fy * full.W + x) * 4 + c]));
+    }
+  }
+  return { worst };
+};
+
+ok.ready = true;
+</script>
+</body>
+</html>

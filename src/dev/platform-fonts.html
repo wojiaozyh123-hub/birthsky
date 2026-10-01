@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fonts · dev</title>
+<link rel="icon" href="data:,">
+<!-- Dev page (not shipped): shows the two subset fonts next to their fallbacks. Driven by tools/dev/platform-fonts.mjs -->
+<link rel="preload" href="../assets/fonts/nawan-serif-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/cormorant-lining-500.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face { font-family: "Nawan Serif"; font-style: normal; font-weight: 400; font-display: block; src: url(../assets/fonts/nawan-serif-400.woff2) format("woff2"); }
+  @font-face { font-family: "Cormorant Lining"; font-style: normal; font-weight: 500; font-display: swap; src: url(../assets/fonts/cormorant-lining-500.woff2) format("woff2"); }
+  :root { --text: #EFE8DA; --night: #030407; --f-display: "Nawan Serif", "Songti SC", "STSong", serif; --f-num: "Cormorant Lining", -apple-system, sans-serif; }
+  html, body { margin: 0; background: var(--night); color: var(--text); font-family: -apple-system, "PingFang SC", sans-serif; }
+  body { padding: 24px 28px; display: grid; grid-template-columns: 1fr auto; gap: 24px; }
+  .col { display: flex; flex-direction: column; gap: 14px; }
+  .d { font-family: var(--f-display); font-weight: 400; font-size: 24px; line-height: 1.45; letter-spacing: 0.08em; }
+  .fb { font-family: "Songti SC", serif; opacity: .45; font-size: 14px; }
+  .v { writing-mode: vertical-rl; text-orientation: upright; font-family: var(--f-display); font-size: 34px; letter-spacing: 0.24em; line-height: 1; }
+  .n { font-family: var(--f-num); font-weight: 500; font-size: 44px; line-height: 48px; letter-spacing: 0.02em; }
+  .n.s { font-size: 24px; line-height: 30px; }
+  .lab { font-size: 11px; opacity: .42; letter-spacing: .04em; }
+  .q { font-family: var(--f-display); font-size: 20px; line-height: 1.5; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+  <div class="col">
+    <span class="lab">Nawan Serif · display strings</span>
+    <div class="d" id="disp"></div>
+    <div class="q">你是哪一天来到这个世界的？</div>
+    <div class="q">TA 是哪一天出生的？</div>
+    <span class="lab">fallback (Songti) for comparison</span>
+    <div class="d fb">你来的那晚 · 两个人的星空 · 用这个生日吗？</div>
+    <span class="lab">Cormorant Lining · counter / ruler / 便签</span>
+    <div class="n">2026.09.30</div>
+    <div class="n">1998.07.14</div>
+    <div class="n s">1998.07.14  22:00 · 23:40 · 0123456789 -</div>
+    <span class="lab">canvas (fonts awaited)</span>
+    <canvas id="cv" width="640" height="200" style="width:320px;height:100px"></canvas>
+  </div>
+  <div class="v">你来的那晚</div>
+<script type="module">
+  const DISPLAY = ['你来的那晚', '这是你来的那晚', '两个人的星空', '你是哪一天来到这个世界的？', 'TA 是哪一天出生的？', '用这个生日吗？', '那一夜', '关于'];
+  document.getElementById('disp').innerHTML = DISPLAY.map((s) => `<div>${s}</div>`).join('');
+  await Promise.all([document.fonts.load('24px "Nawan Serif"', '你来的那晚'), document.fonts.load('500 24px "Cormorant Lining"', '0123')]);
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#EFE8DA';
+  ctx.font = '44px "Nawan Serif"';
+  ctx.fillText('你来的那晚', 16, 70);
+  ctx.font = '500 52px "Cormorant Lining"';
+  ctx.fillText('1998.07.14  22:00', 16, 160);
+  window.__fontsReady = true;
+</script>
+</body>
+</html>

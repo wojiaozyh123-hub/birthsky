@@ -3,3 +3,12 @@ node_modules/
 dist/
 .DS_Store
 .claude/
+# business/: private (pricing, operations, the original payment code). Only what the build needs is public:
+# the site config and the cleaned tip image (both are served on the site anyway).
+business/*
+!business/config-for-web.json
+!business/assets/
+business/assets/*
+!business/assets/tip-qr.png
+# scratch drafts
+docs/copy-drafts.md

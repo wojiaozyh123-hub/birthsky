@@ -1,0 +1,3969 @@
+[
+ {
+  "id": "p001",
+  "lines": [
+   "残星几点雁横塞，",
+   "长笛一声人倚楼。"
+  ],
+  "by": "赵嘏",
+  "title": "长安晚秋",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p002",
+  "lines": [
+   "今人不见古时月，",
+   "今月曾经照古人。"
+  ],
+  "by": "李白",
+  "title": "把酒问月",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "时间"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/把酒問月"
+ },
+ {
+  "id": "p003",
+  "lines": [
+   "众星罗列夜明深，",
+   "岩点孤灯月未沉。"
+  ],
+  "by": "寒山",
+  "title": "寒山诗",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "夜",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p004",
+  "lines": [
+   "榆荚散来星斗转，",
+   "桂花寻去月轮移。"
+  ],
+  "by": "李商隐",
+  "title": "一片",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "北斗",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p005",
+  "lines": [
+   "星垂平野阔，",
+   "月涌大江流。"
+  ],
+  "by": "杜甫",
+  "title": "旅夜书怀",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "月",
+   "辽阔"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/旅夜書懷"
+ },
+ {
+  "id": "p006",
+  "lines": [
+   "星河秋一雁，",
+   "砧杵夜千家。"
+  ],
+  "by": "韩翃",
+  "title": "酬程延秋夜即事见赠",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "夜",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p007",
+  "lines": [
+   "醉后不知天在水，",
+   "满船清梦压星河。"
+  ],
+  "by": "唐珙",
+  "title": "题龙阳县青草湖",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "倒影",
+   "梦"
+  ],
+  "regions": [
+   "湖南",
+   "岳阳",
+   "常德"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/題龍陽縣青草湖"
+ },
+ {
+  "id": "p008",
+  "lines": [
+   "星临万户动，",
+   "月傍九霄多。"
+  ],
+  "by": "杜甫",
+  "title": "春宿左省",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "有月",
+   "春"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p009",
+  "lines": [
+   "江畔何人初见月，",
+   "江月何年初照人？"
+  ],
+  "by": "张若虚",
+  "title": "春江花月夜",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "出生",
+   "时间"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/春江花月夜_(張若虛)"
+ },
+ {
+  "id": "p010",
+  "lines": [
+   "纤云弄巧，",
+   "飞星传恨，",
+   "银汉迢迢暗度。"
+  ],
+  "by": "秦观",
+  "title": "鹊桥仙·纤云弄巧",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p011",
+  "lines": [
+   "暮云收尽溢清寒，",
+   "银汉无声转玉盘。"
+  ],
+  "by": "苏轼",
+  "title": "阳关曲·中秋月",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "有月",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p012",
+  "lines": [
+   "月出于东山之上，",
+   "徘徊于斗牛之间。"
+  ],
+  "by": "苏轼",
+  "title": "前赤壁赋",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "夜"
+  ],
+  "regions": [
+   "湖北",
+   "黄冈"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/前赤壁賦"
+ },
+ {
+  "id": "p013",
+  "lines": [
+   "今夜月明人尽望，",
+   "不知秋思落谁家。"
+  ],
+  "by": "王建",
+  "title": "十五夜望月",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "有月",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p014",
+  "lines": [
+   "小时不识月，",
+   "呼作白玉盘。"
+  ],
+  "by": "李白",
+  "title": "古朗月行",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "童年",
+   "惊奇",
+   "出生"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/古朗月行"
+ },
+ {
+  "id": "p015",
+  "lines": [
+   "光行千载，",
+   "人行十月，",
+   "同夜叩门。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p016",
+  "lines": [
+   "绸缪束薪，三星在天。",
+   "今夕何夕，见此良人。"
+  ],
+  "by": "诗经",
+  "title": "唐风·绸缪",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "相逢",
+   "两个人",
+   "爱"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/wiki/詩經/綢繆"
+ },
+ {
+  "id": "p017",
+  "lines": [
+   "人生代代无穷已，",
+   "江月年年望相似。"
+  ],
+  "by": "张若虚",
+  "title": "春江花月夜",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p018",
+  "lines": [
+   "危楼高百尺，",
+   "手可摘星辰。",
+   "不敢高声语，",
+   "恐惊天上人。"
+  ],
+  "by": "传李白",
+  "title": "夜宿山寺",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "仰望",
+   "寂静",
+   "惊奇"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/夜宿山寺"
+ },
+ {
+  "id": "p019",
+  "lines": [
+   "人生如梦，",
+   "一尊还酹江月。"
+  ],
+  "by": "苏轼",
+  "title": "念奴娇·赤壁怀古",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p020",
+  "lines": [
+   "无言独上西楼，",
+   "月如钩。"
+  ],
+  "by": "李煜",
+  "title": "相见欢",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "蛾眉月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p021",
+  "lines": [
+   "素月分辉，明河共影，",
+   "表里俱澄澈。"
+  ],
+  "by": "张孝祥",
+  "title": "念奴娇·过洞庭",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "银河",
+   "倒影"
+  ],
+  "regions": [
+   "湖南",
+   "岳阳"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/念奴嬌_(張孝祥)"
+ },
+ {
+  "id": "p022",
+  "lines": [
+   "缺月挂疏桐，",
+   "漏断人初静。"
+  ],
+  "by": "苏轼",
+  "title": "卜算子·黄州定慧院寓居作",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p023",
+  "lines": [
+   "天河夜转漂回星，",
+   "银浦流云学水声。"
+  ],
+  "by": "李贺",
+  "title": "天上谣",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "星",
+   "夜"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/天上謠"
+ },
+ {
+  "id": "p024",
+  "lines": [
+   "青女素娥俱耐冷，",
+   "月中霜里斗婵娟。"
+  ],
+  "by": "李商隐",
+  "title": "霜月",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "北斗",
+   "有月",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p025",
+  "lines": [
+   "深林人不知，",
+   "明月来相照。"
+  ],
+  "by": "王维",
+  "title": "竹里馆",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p026",
+  "lines": [
+   "明月几时有？",
+   "把酒问青天。"
+  ],
+  "by": "苏轼",
+  "title": "水调歌头",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "仰望",
+   "宇宙"
+  ],
+  "regions": [
+   "山东",
+   "潍坊"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/水調歌頭_(明月幾時有)"
+ },
+ {
+  "id": "p027",
+  "lines": [
+   "水田初满银河落，",
+   "一片蛙声种出星。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "春",
+   "夏"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p028",
+  "lines": [
+   "人生不相见，",
+   "动如参与商。",
+   "今夕复何夕，",
+   "共此灯烛光。"
+  ],
+  "by": "杜甫",
+  "title": "赠卫八处士",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "两个人",
+   "相逢",
+   "猎户座",
+   "天蝎座"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/wiki/贈衛八處士"
+ },
+ {
+  "id": "p029",
+  "lines": [
+   "秦时明月汉时关，",
+   "万里长征人未还。"
+  ],
+  "by": "王昌龄",
+  "title": "出塞",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "银河",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p030",
+  "lines": [
+   "露从今夜白，",
+   "月是故乡明。"
+  ],
+  "by": "杜甫",
+  "title": "月夜忆舍弟",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "有月",
+   "秋"
+  ],
+  "regions": [
+   "海外"
+  ],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p031",
+  "lines": [
+   "永夜角声悲自语，",
+   "中天月色好谁看。"
+  ],
+  "by": "杜甫",
+  "title": "宿府",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p032",
+  "lines": [
+   "七八个星天外，",
+   "两三点雨山前。"
+  ],
+  "by": "辛弃疾",
+  "title": "西江月·夜行黄沙道中",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "夏",
+   "乡村",
+   "多雨"
+  ],
+  "regions": [
+   "江西",
+   "上饶"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/西江月_(辛棄疾)"
+ },
+ {
+  "id": "p033",
+  "lines": [
+   "天何所沓？十二焉分？",
+   "日月安属？列星安陈？"
+  ],
+  "by": "屈原",
+  "title": "天问",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "宇宙",
+   "星",
+   "惊奇"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/天問"
+ },
+ {
+  "id": "p034",
+  "lines": [
+   "牛渚西江夜，",
+   "青天无片云。"
+  ],
+  "by": "李白",
+  "title": "夜泊牛渚怀古",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p035",
+  "lines": [
+   "金风玉露一相逢，",
+   "便胜却人间无数。"
+  ],
+  "by": "秦观",
+  "title": "鹊桥仙·纤云弄巧",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p036",
+  "lines": [
+   "明月何皎皎，",
+   "照我罗床帏。"
+  ],
+  "by": "古诗十九首",
+  "title": "明月何皎皎",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p037",
+  "lines": [
+   "俱怀逸兴壮思飞，",
+   "欲上青天览明月。"
+  ],
+  "by": "李白",
+  "title": "宣州谢朓楼饯别校书叔云",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "天空",
+   "仰望"
+  ],
+  "regions": [
+   "安徽",
+   "宣城"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/宣州謝朓樓餞別校書叔雲"
+ },
+ {
+  "id": "p038",
+  "lines": [
+   "嘒彼小星，",
+   "三五在东。"
+  ],
+  "by": "诗经",
+  "title": "召南·小星",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p039",
+  "lines": [
+   "人闲桂花落，",
+   "夜静春山空。",
+   "月出惊山鸟，",
+   "时鸣春涧中。"
+  ],
+  "by": "王维",
+  "title": "鸟鸣涧",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "寂静",
+   "春",
+   "山区"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/皇甫嶽雲溪雜題五首/鳥鳴澗"
+ },
+ {
+  "id": "p040",
+  "lines": [
+   "夫天地者，万物之逆旅也；",
+   "光阴者，百代之过客也。"
+  ],
+  "by": "李白",
+  "title": "春夜宴从弟桃花园序",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "天地",
+   "时间"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p041",
+  "lines": [
+   "闲云潭影日悠悠，",
+   "物换星移几度秋。"
+  ],
+  "by": "王勃",
+  "title": "滕王阁诗",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p042",
+  "lines": [
+   "昨夜星辰昨夜风，",
+   "画楼西畔桂堂东。"
+  ],
+  "by": "李商隐",
+  "title": "无题",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "夜",
+   "两个人",
+   "回忆"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/wiki/無題_(昨夜星辰昨夜風)"
+ },
+ {
+  "id": "p043",
+  "lines": [
+   "愿我如星君如月，",
+   "夜夜流光相皎洁。"
+  ],
+  "by": "范成大",
+  "title": "车遥遥篇",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "夜",
+   "两个人",
+   "有月"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p044",
+  "lines": [
+   "尽挹西江，细斟北斗，",
+   "万象为宾客。"
+  ],
+  "by": "张孝祥",
+  "title": "念奴娇·过洞庭",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "北斗",
+   "宇宙",
+   "辽阔"
+  ],
+  "regions": [
+   "湖南",
+   "岳阳"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/念奴嬌_(張孝祥)"
+ },
+ {
+  "id": "p045",
+  "lines": [
+   "却下水晶帘，",
+   "玲珑望秋月。"
+  ],
+  "by": "李白",
+  "title": "玉阶怨",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p046",
+  "lines": [
+   "寄蜉蝣于天地，",
+   "渺沧海之一粟。"
+  ],
+  "by": "苏轼",
+  "title": "前赤壁赋",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "宇宙",
+   "辽阔"
+  ],
+  "regions": [
+   "湖北",
+   "黄冈"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/前赤壁賦"
+ },
+ {
+  "id": "p047",
+  "lines": [
+   "杏花疏影里，",
+   "吹笛到天明。"
+  ],
+  "by": "陈与义",
+  "title": "临江仙·夜登小阁忆洛中旧游",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "春"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p048",
+  "lines": [
+   "彩舟云淡，",
+   "星河鹭起，",
+   "画图难足。"
+  ],
+  "by": "王安石",
+  "title": "桂枝香·金陵怀古",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河"
+  ],
+  "regions": [
+   "江苏",
+   "南京"
+  ],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p049",
+  "lines": [
+   "天地与我并生，",
+   "而万物与我为一。"
+  ],
+  "by": "庄子",
+  "title": "齐物论",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "宇宙",
+   "出生"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/莊子/齊物論"
+ },
+ {
+  "id": "p050",
+  "lines": [
+   "星月皎洁，",
+   "明河在天。"
+  ],
+  "by": "欧阳修",
+  "title": "秋声赋",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "银河",
+   "有月",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p051",
+  "lines": [
+   "悄立市桥人不识，",
+   "一星如月看多时。"
+  ],
+  "by": "黄景仁",
+  "title": "癸巳除夕偶成",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "仰望",
+   "冬",
+   "城市"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/癸巳除夕偶成"
+ },
+ {
+  "id": "p052",
+  "lines": [
+   "我寄愁心与明月，",
+   "随君直到夜郎西。"
+  ],
+  "by": "李白",
+  "title": "闻王昌龄左迁龙标遥有此寄",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "两个人",
+   "有月",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p053",
+  "lines": [
+   "河汉清且浅，相去复几许？",
+   "盈盈一水间，脉脉不得语。"
+  ],
+  "by": "古诗十九首",
+  "title": "迢迢牵牛星",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "牛郎织女",
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/wiki/迢迢牽牛星"
+ },
+ {
+  "id": "p054",
+  "lines": [
+   "东船西舫悄无言，",
+   "唯见江心秋月白。"
+  ],
+  "by": "白居易",
+  "title": "琵琶行",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月",
+   "秋"
+  ],
+  "regions": [
+   "江西",
+   "九江"
+  ],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p055",
+  "lines": [
+   "青山一道同云雨，",
+   "明月何曾是两乡。"
+  ],
+  "by": "王昌龄",
+  "title": "送柴侍御",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p056",
+  "lines": [
+   "遥望齐州九点烟，",
+   "一泓海水杯中泻。"
+  ],
+  "by": "李贺",
+  "title": "梦天",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "宇宙",
+   "辽阔"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/夢天"
+ },
+ {
+  "id": "p057",
+  "lines": [
+   "大漠沙如雪，",
+   "燕山月似钩。"
+  ],
+  "by": "李贺",
+  "title": "马诗·其五",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "蛾眉月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p058",
+  "lines": [
+   "天上星河转，",
+   "人间帘幕垂。"
+  ],
+  "by": "李清照",
+  "title": "南歌子",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "夜",
+   "时间"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/南歌子_(李清照)"
+ },
+ {
+  "id": "p059",
+  "lines": [
+   "扪参历井仰胁息，",
+   "以手抚膺坐长叹。"
+  ],
+  "by": "李白",
+  "title": "蜀道难",
+  "kind": "classic",
+  "translator": "",
+  "themes": [],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p060",
+  "lines": [
+   "譬如北辰，",
+   "居其所而众星共之。"
+  ],
+  "by": "孔子",
+  "title": "论语·为政",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "北半球"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p061",
+  "lines": [
+   "天阶夜色凉如水，",
+   "卧看牵牛织女星。"
+  ],
+  "by": "杜牧",
+  "title": "秋夕",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "牛郎织女",
+   "秋",
+   "仰望"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/秋夕_(杜牧)"
+ },
+ {
+  "id": "p062",
+  "lines": [
+   "疏星淡月秋千院，",
+   "愁云恨雨芙蓉面。"
+  ],
+  "by": "张可久",
+  "title": "塞鸿秋·春情",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "有月",
+   "春"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p063",
+  "lines": [
+   "但愿人长久，",
+   "千里共婵娟。"
+  ],
+  "by": "苏轼",
+  "title": "水调歌头",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "异地"
+  ],
+  "regions": [
+   "山东",
+   "潍坊",
+   "海外"
+  ],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/zh-hans/水調歌頭_(明月幾時有)"
+ },
+ {
+  "id": "p064",
+  "lines": [
+   "两处灯，隔千里，",
+   "星上看，只一点。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "两个人",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p065",
+  "lines": [
+   "星光千岁出，",
+   "与我同夜来。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "夜"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p066",
+  "lines": [
+   "星河过屋了无声，",
+   "不扰襁中初梦成。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p067",
+  "lines": [
+   "援北斗兮酌桂浆。"
+  ],
+  "by": "屈原",
+  "title": "九歌·东君",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "北斗",
+   "宇宙"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/九歌"
+ },
+ {
+  "id": "p068",
+  "lines": [
+   "晚来风定钓丝闲，",
+   "上下是新月。"
+  ],
+  "by": "朱敦儒",
+  "title": "好事近·渔父词",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "蛾眉月",
+   "倒影",
+   "寂静"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/好事近_(朱敦儒)"
+ },
+ {
+  "id": "p069",
+  "lines": [
+   "夜深汲罢井中水，",
+   "一瓮星河摇到家。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "夜"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p070",
+  "lines": [
+   "共看明月应垂泪，",
+   "一夜乡心五处同。"
+  ],
+  "by": "白居易",
+  "title": "望月有感",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "两个人",
+   "有月",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p071",
+  "lines": [
+   "竹露滴空阶，",
+   "星河深一院。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p072",
+  "lines": [
+   "野旷天低树，",
+   "江清月近人。"
+  ],
+  "by": "孟浩然",
+  "title": "宿建德江",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "辽阔",
+   "倒影"
+  ],
+  "regions": [
+   "浙江",
+   "杭州"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/宿建德江"
+ },
+ {
+  "id": "p073",
+  "lines": [
+   "夜静能闻北斗移。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "北斗",
+   "夜",
+   "北半球"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p074",
+  "lines": [
+   "东风夜放花千树，",
+   "更吹落、星如雨。"
+  ],
+  "by": "辛弃疾",
+  "title": "青玉案·元夕",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "流星",
+   "春",
+   "惊奇"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/青玉案_(辛棄疾)"
+ },
+ {
+  "id": "p075",
+  "lines": [
+   "初来天地间，",
+   "星辰皆故人。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "天地"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p076",
+  "lines": [
+   "一夜星河转，",
+   "人间添一人。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "夜"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p077",
+  "lines": [
+   "何夜无月？何处无竹柏？",
+   "但少闲人如吾两人者耳。"
+  ],
+  "by": "苏轼",
+  "title": "记承天寺夜游",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "陪伴"
+  ],
+  "regions": [
+   "湖北",
+   "黄冈"
+  ],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/zh-hans/記承天寺夜遊"
+ },
+ {
+  "id": "p078",
+  "lines": [
+   "披星戴月"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "idiom",
+  "translator": "",
+  "themes": [
+   "月",
+   "星"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p079",
+  "lines": [
+   "飞流直下三千尺，",
+   "疑是银河落九天。"
+  ],
+  "by": "李白",
+  "title": "望庐山瀑布",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "惊奇",
+   "山区"
+  ],
+  "regions": [
+   "江西",
+   "九江"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/望廬山瀑布"
+ },
+ {
+  "id": "p080",
+  "lines": [
+   "众星拱月"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "idiom",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p081",
+  "lines": [
+   "斗转参横"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "idiom",
+  "translator": "",
+  "themes": [
+   "北斗",
+   "北半球"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p082",
+  "lines": [
+   "明月如霜，好风如水，",
+   "清景无限。"
+  ],
+  "by": "苏轼",
+  "title": "永遇乐·彭城夜宿燕子楼",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "寂静",
+   "夜"
+  ],
+  "regions": [
+   "江苏",
+   "徐州"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/永遇樂_(蘇軾)"
+ },
+ {
+  "id": "p083",
+  "lines": [
+   "美人迈兮音尘阙，",
+   "隔千里兮共明月。"
+  ],
+  "by": "谢庄",
+  "title": "月赋",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p084",
+  "lines": [
+   "东有启明，",
+   "西有长庚。"
+  ],
+  "by": "诗经",
+  "title": "小雅·大东",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "金星",
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/wiki/詩經/大東"
+ },
+ {
+  "id": "p085",
+  "lines": [
+   "天上不曾添一星，",
+   "人家多亮一窗灯。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p086",
+  "lines": [
+   "云母屏风烛影深，",
+   "长河渐落晓星沉。"
+  ],
+  "by": "李商隐",
+  "title": "嫦娥",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p087",
+  "lines": [
+   "更堪此夜西楼梦，",
+   "摘得星辰满袖行。"
+  ],
+  "by": "王国维",
+  "title": "鹧鸪天·列炬归来酒未醒",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "夜"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p088",
+  "lines": [
+   "明月出天山，",
+   "苍茫云海间。",
+   "长风几万里，",
+   "吹度玉门关。"
+  ],
+  "by": "李白",
+  "title": "关山月",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "辽阔",
+   "远方"
+  ],
+  "regions": [
+   "新疆",
+   "甘肃",
+   "敦煌"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/關山月_(李白)"
+ },
+ {
+  "id": "p089",
+  "lines": [
+   "念天地之悠悠，",
+   "独怆然而涕下。"
+  ],
+  "by": "陈子昂",
+  "title": "登幽州台歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "天地"
+  ],
+  "regions": [
+   "北京"
+  ],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p090",
+  "lines": [
+   "月落星稀天欲明，",
+   "孤灯未灭梦难成。"
+  ],
+  "by": "李端",
+  "title": "闺情",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p091",
+  "lines": [
+   "此时相望不相闻，",
+   "愿逐月华流照君。"
+  ],
+  "by": "张若虚",
+  "title": "春江花月夜",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/wiki/春江花月夜_(張若虛)"
+ },
+ {
+  "id": "p092",
+  "lines": [
+   "君生我未生，",
+   "我生君已老。",
+   "君恨我生迟，",
+   "我恨君生早。"
+  ],
+  "by": "佚名",
+  "title": "长沙窑瓷壶题诗",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "两个人",
+   "年龄差"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p093",
+  "lines": [
+   "天似穹庐，笼盖四野。",
+   "天苍苍，野茫茫，",
+   "风吹草低见牛羊。"
+  ],
+  "by": "北朝民歌",
+  "title": "敕勒歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "天空",
+   "辽阔"
+  ],
+  "regions": [
+   "内蒙古",
+   "呼和浩特",
+   "包头"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/敕勒歌"
+ },
+ {
+  "id": "p094",
+  "lines": [
+   "今夜鄜州月，",
+   "闺中只独看。"
+  ],
+  "by": "杜甫",
+  "title": "月夜",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "两个人",
+   "有月",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p095",
+  "lines": [
+   "七夕今宵看碧霄，",
+   "牵牛织女渡河桥。"
+  ],
+  "by": "林杰",
+  "title": "乞巧",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "两个人",
+   "秋"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p096",
+  "lines": [
+   "万帐穹庐人醉，",
+   "星影摇摇欲坠。"
+  ],
+  "by": "纳兰性德",
+  "title": "如梦令",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "辽阔"
+  ],
+  "regions": [
+   "辽宁"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/如夢令_(萬帳穹廬人醉)"
+ },
+ {
+  "id": "p097",
+  "lines": [
+   "来时何所似？",
+   "天地一声啼。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "天地"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p098",
+  "lines": [
+   "星辰冷落碧潭水，",
+   "鸿雁悲鸣红蓼风。"
+  ],
+  "by": "戴复古",
+  "title": "月夜舟中",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p099",
+  "lines": [
+   "更深月色半人家，",
+   "北斗阑干南斗斜。"
+  ],
+  "by": "刘方平",
+  "title": "月夜",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "北斗",
+   "有月",
+   "北半球"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p100",
+  "lines": [
+   "我欲因之梦吴越，",
+   "一夜飞度镜湖月。",
+   "湖月照我影，",
+   "送我至剡溪。"
+  ],
+  "by": "李白",
+  "title": "梦游天姥吟留别",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "倒影",
+   "夜"
+  ],
+  "regions": [
+   "浙江",
+   "绍兴"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/夢遊天姥吟留別"
+ },
+ {
+  "id": "p101",
+  "lines": [
+   "玉衡指孟冬，",
+   "众星何历历。"
+  ],
+  "by": "古诗十九首",
+  "title": "明月皎夜光",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "北半球"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p102",
+  "lines": [
+   "起来携素手，庭户无声，",
+   "时见疏星渡河汉。"
+  ],
+  "by": "苏轼",
+  "title": "洞仙歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "两个人",
+   "夏"
+  ],
+  "regions": [
+   "四川",
+   "成都"
+  ],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/zh-hans/洞仙歌（冰肌玉骨）"
+ },
+ {
+  "id": "p103",
+  "lines": [
+   "日月之行，若出其中；",
+   "星汉灿烂，若出其里。"
+  ],
+  "by": "曹操",
+  "title": "观沧海",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "海边",
+   "宇宙"
+  ],
+  "regions": [
+   "河北",
+   "秦皇岛"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/觀滄海"
+ },
+ {
+  "id": "p104",
+  "lines": [
+   "举杯邀明月，",
+   "对影成三人。"
+  ],
+  "by": "李白",
+  "title": "月下独酌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p105",
+  "lines": [
+   "可怜九月初三夜，",
+   "露似真珠月似弓。"
+  ],
+  "by": "白居易",
+  "title": "暮江吟",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "蛾眉月",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p106",
+  "lines": [
+   "当时明月在，",
+   "曾照彩云归。"
+  ],
+  "by": "晏几道",
+  "title": "临江仙·梦后楼台高锁",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p107",
+  "lines": [
+   "举头望明月，",
+   "低头思故乡。"
+  ],
+  "by": "李白",
+  "title": "静夜思",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "故乡",
+   "仰望"
+  ],
+  "regions": [
+   "海外"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/靜夜思"
+ },
+ {
+  "id": "p108",
+  "lines": [
+   "月上柳梢头，",
+   "人约黄昏后。"
+  ],
+  "by": "欧阳修",
+  "title": "生查子·元夕",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p109",
+  "lines": [
+   "明月松间照，",
+   "清泉石上流。"
+  ],
+  "by": "王维",
+  "title": "山居秋暝",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p110",
+  "lines": [
+   "海上生明月，",
+   "天涯共此时。"
+  ],
+  "by": "张九龄",
+  "title": "望月怀远",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "海边",
+   "异地"
+  ],
+  "regions": [
+   "海外"
+  ],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/wiki/望月懷遠"
+ },
+ {
+  "id": "p111",
+  "lines": [
+   "洗儿盆里月，",
+   "一漾满盆星。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p112",
+  "lines": [
+   "峨眉山月半轮秋，",
+   "影入平羌江水流。",
+   "夜发清溪向三峡，",
+   "思君不见下渝州。"
+  ],
+  "by": "李白",
+  "title": "峨眉山月歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "秋",
+   "倒影",
+   "远方"
+  ],
+  "regions": [
+   "四川",
+   "乐山",
+   "重庆"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/峨眉山月歌"
+ },
+ {
+  "id": "p113",
+  "lines": [
+   "一声初啼，",
+   "满天旧光。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p114",
+  "lines": [
+   "多情只有春庭月，",
+   "犹为离人照落花。"
+  ],
+  "by": "张泌",
+  "title": "寄人",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月",
+   "春",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p115",
+  "lines": [
+   "云破月来花弄影。"
+  ],
+  "by": "张先",
+  "title": "天仙子",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p116",
+  "lines": [
+   "二十四桥仍在，",
+   "波心荡、冷月无声。"
+  ],
+  "by": "姜夔",
+  "title": "扬州慢",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "寂静",
+   "倒影"
+  ],
+  "regions": [
+   "江苏",
+   "扬州"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/揚州慢"
+ },
+ {
+  "id": "p117",
+  "lines": [
+   "小楼昨夜又东风，",
+   "故国不堪回首月明中。"
+  ],
+  "by": "李煜",
+  "title": "虞美人",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "有月",
+   "春"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p118",
+  "lines": [
+   "牵牛织女遥相望，",
+   "尔独何辜限河梁？"
+  ],
+  "by": "曹丕",
+  "title": "燕歌行",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p119",
+  "lines": [
+   "三峡星河影动摇"
+  ],
+  "by": "杜甫",
+  "title": "阁夜",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "倒影",
+   "夜"
+  ],
+  "regions": [
+   "重庆"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/閣夜"
+ },
+ {
+  "id": "p120",
+  "lines": [
+   "今宵酒醒何处？",
+   "杨柳岸，晓风残月。"
+  ],
+  "by": "柳永",
+  "title": "雨霖铃",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p121",
+  "lines": [
+   "何当共剪西窗烛，",
+   "却话巴山夜雨时。"
+  ],
+  "by": "李商隐",
+  "title": "夜雨寄北",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜",
+   "两个人",
+   "多雨",
+   "异地"
+  ],
+  "regions": [
+   "重庆",
+   "四川"
+  ],
+  "pair": true,
+  "source_url": "https://zh.wikisource.org/wiki/夜雨寄北"
+ },
+ {
+  "id": "p122",
+  "lines": [
+   "云中谁寄锦书来？",
+   "雁字回时，月满西楼。"
+  ],
+  "by": "李清照",
+  "title": "一剪梅·红藕香残玉簟秋",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p123",
+  "lines": [
+   "一轮秋影转金波，",
+   "飞镜又重磨。"
+  ],
+  "by": "辛弃疾",
+  "title": "太常引·建康中秋夜为吕叔潜赋",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "有月",
+   "秋"
+  ],
+  "regions": [
+   "江苏",
+   "南京"
+  ],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p124",
+  "lines": [
+   "朝发轫于天津兮，",
+   "夕余至乎西极。"
+  ],
+  "by": "屈原",
+  "title": "离骚",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "远方"
+  ],
+  "regions": [
+   "天津"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/離騷"
+ },
+ {
+  "id": "p125",
+  "lines": [
+   "雁声远过潇湘去，",
+   "十二楼中月自明。"
+  ],
+  "by": "温庭筠",
+  "title": "瑶瑟怨",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p126",
+  "lines": [
+   "孤帆远影碧空尽，",
+   "唯见长江天际流。"
+  ],
+  "by": "李白",
+  "title": "黄鹤楼送孟浩然之广陵",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "天空",
+   "远方",
+   "辽阔"
+  ],
+  "regions": [
+   "湖北",
+   "武汉"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/黃鶴樓送孟浩然之廣陵"
+ },
+ {
+  "id": "p127",
+  "lines": [
+   "桃李春风一杯酒，",
+   "江湖夜雨十年灯。"
+  ],
+  "by": "黄庭坚",
+  "title": "寄黄几复",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜",
+   "两个人",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p128",
+  "lines": [
+   "孤月沧浪河汉清，",
+   "北斗错落长庚明。"
+  ],
+  "by": "李白",
+  "title": "答王十二寒夜独酌有怀",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "银河",
+   "北斗",
+   "有月",
+   "北半球"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p129",
+  "lines": [
+   "月出皎兮，",
+   "佼人僚兮。"
+  ],
+  "by": "诗经",
+  "title": "陈风·月出",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p130",
+  "lines": [
+   "举手弄清浅，",
+   "误攀织女机。"
+  ],
+  "by": "李白",
+  "title": "游泰山六首·其六",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "牛郎织女",
+   "惊奇",
+   "山区"
+  ],
+  "regions": [
+   "山东",
+   "泰安"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/遊泰山_(朝飲王母池)"
+ },
+ {
+  "id": "p131",
+  "lines": [
+   "子兴视夜，",
+   "明星有烂。"
+  ],
+  "by": "诗经",
+  "title": "郑风·女曰鸡鸣",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "夜",
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p132",
+  "lines": [
+   "檐外河移半尺，",
+   "灯前人守三更。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "银河"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p133",
+  "lines": [
+   "夜盥银河摘星斗，",
+   "朝探碧落弄云烟。"
+  ],
+  "by": "丘濬",
+  "title": "五指山",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "银河",
+   "星",
+   "山区",
+   "惊奇"
+  ],
+  "regions": [
+   "海南",
+   "五指山"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/堯山堂外紀/卷086"
+ },
+ {
+  "id": "p134",
+  "lines": [
+   "天涯共此月，",
+   "只是不同时。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月",
+   "时差"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p135",
+  "lines": [
+   "云散月明谁点缀？",
+   "天容海色本澄清。"
+  ],
+  "by": "苏轼",
+  "title": "六月二十日夜渡海",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "海边",
+   "夏"
+  ],
+  "regions": [
+   "海南",
+   "海口"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/六月二十日夜渡海"
+ },
+ {
+  "id": "p136",
+  "lines": [
+   "月黑雁飞高，",
+   "单于夜遁逃。"
+  ],
+  "by": "卢纶",
+  "title": "塞下曲",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "无月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p137",
+  "lines": [
+   "回乐烽前沙似雪，",
+   "受降城外月如霜。"
+  ],
+  "by": "李益",
+  "title": "夜上受降城闻笛",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p138",
+  "lines": [
+   "夜静水寒鱼不食，",
+   "满船空载月明归。"
+  ],
+  "by": "船子和尚",
+  "title": "拨棹歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "寂静",
+   "夜"
+  ],
+  "regions": [
+   "上海"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/冷齋夜話/卷七"
+ },
+ {
+  "id": "p139",
+  "lines": [
+   "可怜今夜千门里，",
+   "银汉星回一道通。"
+  ],
+  "by": "王昌龄",
+  "title": "萧驸马宅花烛",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "夜",
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p140",
+  "lines": [
+   "长安一片月，",
+   "万户捣衣声。"
+  ],
+  "by": "李白",
+  "title": "子夜吴歌·秋歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "秋",
+   "城市"
+  ],
+  "regions": [
+   "陕西",
+   "西安"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/子夜吳歌/秋歌"
+ },
+ {
+  "id": "p141",
+  "lines": [
+   "似此星辰非昨夜，",
+   "为谁风露立中宵。"
+  ],
+  "by": "黄景仁",
+  "title": "绮怀·其十五",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "夜",
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p142",
+  "lines": [
+   "春风又绿江南岸，",
+   "明月何时照我还？"
+  ],
+  "by": "王安石",
+  "title": "泊船瓜洲",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月",
+   "春"
+  ],
+  "regions": [
+   "海外"
+  ],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p143",
+  "lines": [
+   "月下飞天镜，",
+   "云生结海楼。"
+  ],
+  "by": "李白",
+  "title": "渡荆门送别",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p144",
+  "lines": [
+   "落霞与孤鹜齐飞，",
+   "秋水共长天一色。"
+  ],
+  "by": "王勃",
+  "title": "滕王阁序",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "天空",
+   "秋",
+   "辽阔"
+  ],
+  "regions": [
+   "江西",
+   "南昌"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/滕王閣序"
+ },
+ {
+  "id": "p145",
+  "lines": [
+   "夜来南极上，",
+   "分野望牵牛。"
+  ],
+  "by": "王偁",
+  "title": "邕州",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "仰望",
+   "牛郎织女"
+  ],
+  "regions": [
+   "广西",
+   "南宁"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/虛舟集_(四庫全書本)/卷4"
+ },
+ {
+  "id": "p146",
+  "lines": [
+   "明月照高楼，",
+   "流光正徘徊。"
+  ],
+  "by": "曹植",
+  "title": "七哀",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p147",
+  "lines": [
+   "可怜今夕月，",
+   "向何处、去悠悠？",
+   "是别有人间，那边才见，",
+   "光影东头？"
+  ],
+  "by": "辛弃疾",
+  "title": "木兰花慢·可怜今夕月",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "两个人",
+   "有月",
+   "时差"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p148",
+  "lines": [
+   "月照古人千万度，",
+   "今宵初度照儿眠。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "月",
+   "时间",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p149",
+  "lines": [
+   "随风潜入夜，",
+   "润物细无声。"
+  ],
+  "by": "杜甫",
+  "title": "春夜喜雨",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜",
+   "春",
+   "寂静",
+   "多雨"
+  ],
+  "regions": [
+   "四川",
+   "成都"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/春夜喜雨"
+ },
+ {
+  "id": "p150",
+  "lines": [
+   "晨兴理荒秽，",
+   "带月荷锄归。"
+  ],
+  "by": "陶渊明",
+  "title": "归园田居·其三",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p151",
+  "lines": [
+   "明月澄清景，",
+   "列宿正参差。"
+  ],
+  "by": "曹植",
+  "title": "公宴",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p152",
+  "lines": [
+   "忽如一夜春风来，",
+   "千树万树梨花开。"
+  ],
+  "by": "岑参",
+  "title": "白雪歌送武判官归京",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "冬",
+   "惊奇",
+   "夜"
+  ],
+  "regions": [
+   "新疆",
+   "乌鲁木齐"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/白雪歌送武判官歸京"
+ },
+ {
+  "id": "p153",
+  "lines": [
+   "迟迟钟鼓初长夜，",
+   "耿耿星河欲曙天。"
+  ],
+  "by": "白居易",
+  "title": "长恨歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "夜",
+   "两个人"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p154",
+  "lines": [
+   "此心安处是吾乡。"
+  ],
+  "by": "苏轼",
+  "title": "定风波",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "故乡"
+  ],
+  "regions": [
+   "海外"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/zh-hans/定風波·南海歸贈王定國侍人寓娘"
+ },
+ {
+  "id": "p155",
+  "lines": [
+   "往古来今谓之宙，",
+   "四方上下谓之宇。"
+  ],
+  "by": "刘安",
+  "title": "淮南子·齐俗训",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "宇宙",
+   "时间"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p156",
+  "lines": [
+   "海内存知己，",
+   "天涯若比邻。"
+  ],
+  "by": "王勃",
+  "title": "送杜少府之任蜀州",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "两个人",
+   "异地"
+  ],
+  "regions": [],
+  "pair": true,
+  "source_url": ""
+ },
+ {
+  "id": "p157",
+  "lines": [
+   "仰观宇宙之大，",
+   "俯察品类之盛。"
+  ],
+  "by": "王羲之",
+  "title": "兰亭集序",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "宇宙"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p158",
+  "lines": [
+   "山寺月中寻桂子，",
+   "郡亭枕上看潮头。"
+  ],
+  "by": "白居易",
+  "title": "忆江南",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "秋",
+   "故乡"
+  ],
+  "regions": [
+   "浙江",
+   "杭州"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/憶江南_(白居易)"
+ },
+ {
+  "id": "p159",
+  "lines": [
+   "淮南皓月冷千山"
+  ],
+  "by": "姜夔",
+  "title": "踏莎行",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "山区"
+  ],
+  "regions": [
+   "安徽",
+   "合肥"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/踏莎行_(姜夔)"
+ },
+ {
+  "id": "p160",
+  "lines": [
+   "月明星稀，",
+   "乌鹊南飞。"
+  ],
+  "by": "曹操",
+  "title": "短歌行",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "星",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p161",
+  "lines": [
+   "树色微茫山亦古，",
+   "水光潋艳夜增幽。"
+  ],
+  "by": "赖和",
+  "title": "初夏游剑潭山寺八首·其四",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜",
+   "夏",
+   "寂静"
+  ],
+  "regions": [
+   "台湾",
+   "台北"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/初夏遊劍潭山寺八首"
+ },
+ {
+  "id": "p162",
+  "lines": [
+   "湖光秋月两相和，",
+   "潭面无风镜未磨。"
+  ],
+  "by": "刘禹锡",
+  "title": "望洞庭",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p163",
+  "lines": [
+   "白日依山尽，",
+   "黄河入海流。"
+  ],
+  "by": "王之涣",
+  "title": "登鹳雀楼",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "辽阔",
+   "黄昏"
+  ],
+  "regions": [
+   "山西",
+   "运城"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/登鸛雀樓_(王之渙)"
+ },
+ {
+  "id": "p164",
+  "lines": [
+   "淮水东边旧时月，",
+   "夜深还过女墙来。"
+  ],
+  "by": "刘禹锡",
+  "title": "石头城",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "有月"
+  ],
+  "regions": [
+   "江苏",
+   "南京"
+  ],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p165",
+  "lines": [
+   "大漠孤烟直，",
+   "长河落日圆。"
+  ],
+  "by": "王维",
+  "title": "使至塞上",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "辽阔",
+   "黄昏"
+  ],
+  "regions": [
+   "宁夏",
+   "甘肃"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/使至塞上"
+ },
+ {
+  "id": "p166",
+  "lines": [
+   "北斗七星高，",
+   "哥舒夜带刀。"
+  ],
+  "by": "西鄙人",
+  "title": "哥舒歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "北斗",
+   "夜",
+   "北半球"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p167",
+  "lines": [
+   "天下三分明月夜，",
+   "二分无赖是扬州。"
+  ],
+  "by": "徐凝",
+  "title": "忆扬州",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜",
+   "有月"
+  ],
+  "regions": [
+   "江苏",
+   "扬州"
+  ],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p168",
+  "lines": [
+   "谁家玉笛暗飞声，",
+   "散入春风满洛城。"
+  ],
+  "by": "李白",
+  "title": "春夜洛城闻笛",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜",
+   "春",
+   "城市"
+  ],
+  "regions": [
+   "河南",
+   "洛阳"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/春夜洛城聞笛"
+ },
+ {
+  "id": "p169",
+  "lines": [
+   "沧海月明珠有泪，",
+   "蓝田日暖玉生烟。"
+  ],
+  "by": "李商隐",
+  "title": "锦瑟",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p170",
+  "lines": [
+   "姑苏城外寒山寺，",
+   "夜半钟声到客船。"
+  ],
+  "by": "张继",
+  "title": "枫桥夜泊",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜",
+   "寂静",
+   "秋"
+  ],
+  "regions": [
+   "江苏",
+   "苏州"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/楓橋夜泊"
+ },
+ {
+  "id": "p171",
+  "lines": [
+   "雪净胡天牧马还，",
+   "月明羌笛戍楼间。"
+  ],
+  "by": "高适",
+  "title": "塞上听吹笛",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p172",
+  "lines": [
+   "海日生残夜，",
+   "江春入旧年。"
+  ],
+  "by": "王湾",
+  "title": "次北固山下",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "出生",
+   "时间",
+   "春"
+  ],
+  "regions": [
+   "江苏",
+   "镇江"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/次北固山下"
+ },
+ {
+  "id": "p173",
+  "lines": [
+   "七月流火，",
+   "九月授衣。"
+  ],
+  "by": "诗经",
+  "title": "豳风·七月",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p174",
+  "lines": [
+   "暮从碧山下，",
+   "山月随人归。"
+  ],
+  "by": "李白",
+  "title": "下终南山过斛斯山人宿置酒",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p175",
+  "lines": [
+   "夜醉长沙酒，",
+   "晓行湘水春。"
+  ],
+  "by": "杜甫",
+  "title": "发潭州",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜",
+   "春"
+  ],
+  "regions": [
+   "湖南",
+   "长沙"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/發潭州"
+ },
+ {
+  "id": "p176",
+  "lines": [
+   "独上江楼思渺然，",
+   "月光如水水如天。"
+  ],
+  "by": "赵嘏",
+  "title": "江楼感旧",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p177",
+  "lines": [
+   "崧高维岳，",
+   "骏极于天。"
+  ],
+  "by": "诗经",
+  "title": "大雅·崧高",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "山区",
+   "天空",
+   "出生"
+  ],
+  "regions": [
+   "河南",
+   "郑州"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/詩經/崧高"
+ },
+ {
+  "id": "p178",
+  "lines": [
+   "斗柄回东时，",
+   "有儿初夜啼。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "北斗",
+   "夜",
+   "北半球",
+   "春"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p179",
+  "lines": [
+   "人在画船犹未睡，",
+   "满堤明月一溪潮。"
+  ],
+  "by": "曾巩",
+  "title": "夜出过利涉门",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "月",
+   "夜"
+  ],
+  "regions": [
+   "福建",
+   "福州"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/夜出過利涉門"
+ },
+ {
+  "id": "p180",
+  "lines": [
+   "厦门屹立海上，极目苍茫，",
+   "波涛拍天，沐日浴月。"
+  ],
+  "by": "周凯",
+  "title": "厦门志",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "海边",
+   "辽阔"
+  ],
+  "regions": [
+   "福建",
+   "厦门"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/廈門志"
+ },
+ {
+  "id": "p181",
+  "lines": [
+   "瓦霜三两行，",
+   "一星移过檐。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "冬",
+   "秋"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p182",
+  "lines": [
+   "珠水烟波接海长，",
+   "春潮微带落霞光。"
+  ],
+  "by": "屈大均",
+  "title": "珠江春泛作",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "春",
+   "光",
+   "海边"
+  ],
+  "regions": [
+   "广东",
+   "广州"
+  ],
+  "pair": false,
+  "source_url": "https://www.shidianguji.com/zh/book/HY1166/chapter/1kobj8y5rybyr"
+ },
+ {
+  "id": "p183",
+  "lines": [
+   "我生之夕，",
+   "众星在天。",
+   "千岁之光，",
+   "至我目前。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p184",
+  "lines": [
+   "江作青罗带，",
+   "山如碧玉簪。"
+  ],
+  "by": "韩愈",
+  "title": "送桂州严大夫",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "山区"
+  ],
+  "regions": [
+   "广西",
+   "桂林"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/送桂州嚴大夫"
+ },
+ {
+  "id": "p185",
+  "lines": [
+   "夜长星不语，",
+   "光自远方来。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "夜"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p186",
+  "lines": [
+   "小阁藏身一斗方，",
+   "夜深虚白自生光。"
+  ],
+  "by": "王阳明",
+  "title": "夜宿汪氏园",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夜",
+   "光",
+   "寂静"
+  ],
+  "regions": [
+   "贵州",
+   "贵阳"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/王陽明集/卷19"
+ },
+ {
+  "id": "p187",
+  "lines": [
+   "天气常如二三月，",
+   "花枝不断四时春。"
+  ],
+  "by": "杨慎",
+  "title": "滇海曲",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "春"
+  ],
+  "regions": [
+   "云南",
+   "昆明"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/升菴集_(四庫全書本)/卷34"
+ },
+ {
+  "id": "p188",
+  "lines": [
+   "斗转星移"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "idiom",
+  "translator": "",
+  "themes": [
+   "星",
+   "北斗",
+   "北半球"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p189",
+  "lines": [
+   "恰似东山山上月，",
+   "轻轻走出最高峰。"
+  ],
+  "by": "仓央嘉措",
+  "title": "六世达赖情歌",
+  "kind": "classic",
+  "translator": "曾缄",
+  "themes": [
+   "月",
+   "山区"
+  ],
+  "regions": [
+   "西藏",
+   "拉萨"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/六世达赖情歌六十六首"
+ },
+ {
+  "id": "p190",
+  "lines": [
+   "流萤一点，",
+   "飞入天河，",
+   "混作一星。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "星",
+   "银河",
+   "夏"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p191",
+  "lines": [
+   "北楼西望满晴空，",
+   "积水连山胜画中。"
+  ],
+  "by": "高适",
+  "title": "金城北楼",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "天空",
+   "辽阔"
+  ],
+  "regions": [
+   "甘肃",
+   "兰州"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/金城北樓"
+ },
+ {
+  "id": "p192",
+  "lines": [
+   "是夜无月，",
+   "河汉自明。"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "site",
+  "translator": "",
+  "themes": [
+   "月",
+   "银河",
+   "夜",
+   "无月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p193",
+  "lines": [
+   "青海长云暗雪山，",
+   "孤城遥望玉门关。"
+  ],
+  "by": "王昌龄",
+  "title": "从军行·其四",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "辽阔",
+   "远方"
+  ],
+  "regions": [
+   "青海",
+   "西宁"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/從軍行_(青海長雲暗雪山)"
+ },
+ {
+  "id": "p194",
+  "lines": [
+   "松花江，江水清，",
+   "夜来雨过春涛生。"
+  ],
+  "by": "康熙",
+  "title": "松花江放船歌",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "春",
+   "夜",
+   "多雨"
+  ],
+  "regions": [
+   "吉林"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/欽定盛京通志_(四庫全書本)/卷005"
+ },
+ {
+  "id": "p195",
+  "lines": [
+   "星罗棋布"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "idiom",
+  "translator": "",
+  "themes": [
+   "星"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p196",
+  "lines": [
+   "四面荷花三面柳，",
+   "一城山色半城湖。"
+  ],
+  "by": "刘凤诰",
+  "title": "大明湖铁公祠联",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "夏",
+   "城市"
+  ],
+  "regions": [
+   "山东",
+   "济南"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/老殘遊記/第02回"
+ },
+ {
+  "id": "p197",
+  "lines": [
+   "月白风清"
+  ],
+  "by": "",
+  "title": "",
+  "kind": "idiom",
+  "translator": "",
+  "themes": [
+   "月",
+   "有月"
+  ],
+  "regions": [],
+  "pair": false,
+  "source_url": ""
+ },
+ {
+  "id": "p198",
+  "lines": [
+   "我昔东海上，",
+   "劳山餐紫霞。"
+  ],
+  "by": "李白",
+  "title": "寄王屋山人孟大融",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "海边",
+   "山区",
+   "惊奇"
+  ],
+  "regions": [
+   "山东",
+   "青岛"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/寄王屋山人孟大融"
+ },
+ {
+  "id": "p199",
+  "lines": [
+   "弹指楼台现，",
+   "飞来何处峰？"
+  ],
+  "by": "黄遵宪",
+  "title": "香港感怀十首·其一",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "城市",
+   "惊奇"
+  ],
+  "regions": [
+   "香港"
+  ],
+  "pair": false,
+  "source_url": "https://zh.wikisource.org/wiki/人境廬詩草/卷01"
+ },
+ {
+  "id": "p200",
+  "lines": [
+   "明珠海上传星气，",
+   "白玉河边看月光。"
+  ],
+  "by": "汤显祖",
+  "title": "香岙逢贾胡",
+  "kind": "classic",
+  "translator": "",
+  "themes": [
+   "星",
+   "月",
+   "海边"
+  ],
+  "regions": [
+   "澳门"
+  ],
+  "pair": false,
+  "source_url": "https://m.thepaper.cn/baijiahao_17562406"
+ }
+]

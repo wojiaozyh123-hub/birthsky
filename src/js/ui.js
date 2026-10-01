@@ -1,57 +1,254 @@
-// Small DOM helpers and the line-icon set.
+// Small DOM helpers, the toast, the one-time hint slot and the press feedback (spec §2.4, S6).
+//
+// Public API
+//   $(sel, root = document)            querySelector
+//   $$(sel, root = document)           querySelectorAll as an array
+//   show(el, on = true)                toggles .is-active and aria-hidden on an element or selector
+//   escapeHtml(s)                      escapes & < > " '
+//   fmtNum(n)                          rounded, comma thousands: 4267 → '4,267'
+//
+//   toast(text, ms = 1600)             one caption-style line in #toast (no box): in 320 ms (enter curve),
+//                                      holds `ms`, out 420 ms (exit curve). A new toast replaces the
+//                                      current one. Created if #toast does not exist.
+//
+//   hint(key, text, { force, ms, hold }) → Promise<boolean>
+//                                      A line in the hint slot (#hint-slot). Hints queue and play one at a
+//                                      time: in 620 ms (opacity + 6 px rise), dwell, out 500 ms (opacity),
+//                                      then ≥600 ms of silence before the next one.
+//                                      dwell = hintDwell(text) = clamp(1.6 s + 0.16 s × characters, 3.2 s, 9 s),
+//                                      or `ms` when given (e.g. 2000 for 「这一圈天，听完了。」).
+//                                      `key` makes it a once-only hint: it is skipped when localStorage
+//                                      `birthsky:hints` already has the key (unless `force`), and the key is
+//                                      stored when the hint actually appears. key null = not remembered.
+//                                      `hold: true` keeps it up until clearHint() (「正在绘制 1179 × 2556」).
+//                                      Resolves true once it was shown and has gone, false if it was skipped
+//                                      or cleared before it appeared.
+//   clearHint()                        fades the current hint out now and drops the queue
+//   hintSeen(key) → boolean            whether a once-only hint has been shown (or marked)
+//   markHint(key)                      marks a once-only hint as done without showing it
+//   hintDwell(text) → ms
+//
+//   press(target) → unbind()           press feedback for an element, a selector or a list: opacity .45
+//                                      in 80 ms on pointerdown, back in 240 ms on release. No scale.
+//                                      Adds .is-pressed while held.
+//
+// DOM/CSS contract: the text goes into an inline-block <span class="toast-text"> / <span class="hint-text">
+// inside #toast / #hint-slot, and only that span is animated (inline opacity/transform). The stylesheet is
+// free to position and style #toast and #hint-slot (font, colour alpha: toast α.90, hint α.62, subtitle
+// shadow, z-index), including with transforms. #toast / #hint-slot get .is-on while showing; #hint-slot's
+// parent gets .has-hint (the summary line shares that slot), and window receives a 'birthsky:hint'
+// CustomEvent { key, text, on }. Text goes through noWidow(), so .nw { white-space: nowrap } must exist.
+
+import { noWidow } from './copy.js';
 
 export const $ = (s, root = document) => root.querySelector(s);
 export const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 
 export function show(el, on = true) {
   el = typeof el === 'string' ? $(el) : el;
+  if (!el) return;
   el.classList.toggle('is-active', on);
   el.setAttribute('aria-hidden', on ? 'false' : 'true');
-}
-
-let toastTimer = 0;
-export function toast(text, ms = 2400) {
-  const t = $('#toast');
-  t.textContent = text;
-  t.classList.add('is-on');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('is-on'), ms);
 }
 
 export function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-const svg = (body) => `<svg viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
-export const ICONS = {
-  soundOn: svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
-  soundOff: svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>'),
-  eye: svg('<path d="M2.5 16.5c3-5 6-7.5 9.5-7.5s6.5 2.5 9.5 7.5"/><path d="M2.5 19.5h19"/><circle cx="12" cy="4.5" r="0.6"/><circle cx="6.5" cy="6.5" r="0.5"/><circle cx="17.5" cy="6.5" r="0.5"/>'),
-  dome: svg('<circle cx="12" cy="12" r="8.5"/><circle cx="10" cy="9" r="0.6"/><circle cx="14.5" cy="13" r="0.6"/><circle cx="9" cy="14.5" r="0.5"/><path d="M10 9l4.5 4-5.5 1.5"/>'),
-  listen: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 12l5.2-6.4"/><circle cx="8.5" cy="9.5" r="0.7"/><circle cx="14.5" cy="15.5" r="0.7"/><circle cx="9.5" cy="15" r="0.5"/>'),
-  stop: svg('<circle cx="12" cy="12" r="8.5"/><rect x="9" y="9" width="6" height="6" rx="1"/>'),
-  poster: svg('<rect x="5" y="3" width="14" height="18" rx="1.5"/><circle cx="12" cy="10" r="4.2"/><path d="M8.5 17h7"/>'),
-  hepan: svg('<circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>'),
-  share: svg('<path d="M12 3.5v12"/><path d="M7.5 8L12 3.5 16.5 8"/><path d="M5 13v6.5h14V13"/>'),
-  play: svg('<path d="M8 5.5v13l10-6.5z"/>'),
-  pause: svg('<path d="M8.5 5.5v13M15.5 5.5v13"/>'),
-  close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
-  back: svg('<path d="M15 5l-7 7 7 7"/>'),
-  moon: svg('<path d="M15.5 3.5a8.5 8.5 0 1 0 5 12.5 7 7 0 0 1-5-12.5z"/>'),
-  planet: svg('<circle cx="12" cy="12" r="5"/><ellipse cx="12" cy="12" rx="10" ry="3.2" transform="rotate(-18 12 12)"/>'),
-  star: svg('<path d="M12 2.5l1.6 7.9 7.9 1.6-7.9 1.6-1.6 7.9-1.6-7.9-7.9-1.6 7.9-1.6z"/>'),
-  light: svg('<circle cx="5" cy="12" r="1.6"/><path d="M8.5 12h12"/><path d="M17 8.5l3.5 3.5-3.5 3.5"/>'),
-  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>'),
-  zenith: svg('<path d="M12 21V6"/><path d="M8 10l4-4 4 4"/><path d="M4 21h16"/><circle cx="12" cy="3" r="1"/>'),
-  count: svg('<circle cx="6" cy="7" r="0.8"/><circle cx="12" cy="5" r="1.2"/><circle cx="18" cy="8" r="0.8"/><circle cx="8" cy="13" r="1"/><circle cx="16" cy="14" r="1.3"/><circle cx="11" cy="19" r="0.8"/>'),
-  leaf: svg('<path d="M5 19c0-8 5-14 14-14 0 9-6 14-14 14z"/><path d="M5 19l8-8"/>'),
-};
-
-export function icon(el, name) {
-  if (typeof el === 'string') el = $(el);
-  if (el) el.innerHTML = ICONS[name] || '';
-}
-
 export function fmtNum(n) {
   return Math.round(n).toLocaleString('en-US');
+}
+
+// ------------------------------------------------------------------------------------ motion tokens
+const EASE_ENTER = 'cubic-bezier(0.22,1,0.36,1)';
+const EASE_EXIT = 'cubic-bezier(0.4,0,1,1)';
+const reduced = () => {
+  try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+};
+
+/** Puts `text` into el as one animated span and returns the span. */
+function textSpan(el, cls, text) {
+  el.innerHTML = `<span class="${cls}" style="display:inline-block;max-width:100%;opacity:0">${noWidow(text)}</span>`;
+  return el.firstElementChild;
+}
+
+function fadeIn(el, ms, rise) {
+  const moving = rise && !reduced();
+  el.style.transition = 'none';
+  el.style.opacity = '0';
+  el.style.transform = moving ? `translateY(${rise}px)` : 'none';
+  void el.offsetWidth; // commit the start state so the transition runs
+  el.style.transition = `opacity ${ms}ms ${EASE_ENTER}` + (moving ? `, transform ${ms}ms ${EASE_ENTER}` : '');
+  el.style.opacity = '1';
+  el.style.transform = 'none';
+}
+
+function fadeOut(el, ms) {
+  el.style.transition = `opacity ${ms}ms ${EASE_EXIT}`;
+  el.style.opacity = '0';
+}
+
+// ------------------------------------------------------------------------------------------- toast
+const TOAST_IN = 320, TOAST_OUT = 420;
+let toastTimer = 0, toastClear = 0;
+
+function toastEl() {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+export function toast(text, ms = 1600) {
+  const el = toastEl();
+  clearTimeout(toastTimer);
+  clearTimeout(toastClear);
+  const span = textSpan(el, 'toast-text', text);
+  el.classList.add('is-on');
+  fadeIn(span, TOAST_IN, 6);
+  toastTimer = setTimeout(() => {
+    fadeOut(span, TOAST_OUT);
+    el.classList.remove('is-on');
+    toastClear = setTimeout(() => { el.textContent = ''; }, TOAST_OUT);
+  }, TOAST_IN + ms);
+}
+
+// -------------------------------------------------------------------------------------------- hint
+const HINT_IN = 620, HINT_OUT = 500, HINT_GAP = 600;
+const HINTS_KEY = 'birthsky:hints';
+let seenMem = null;          // mirror of localStorage, also the fallback when storage is unavailable
+const queue = [];
+let current = null;          // { key, text, resolve, timer }
+let busyUntil = 0;           // end of the current hint's out-fade + silence (performance.now ms)
+let pumpTimer = 0;
+
+function seenSet() {
+  if (seenMem) return seenMem;
+  seenMem = new Set();
+  try {
+    const raw = JSON.parse(localStorage.getItem(HINTS_KEY) || '{}');
+    for (const k of Array.isArray(raw) ? raw : Object.keys(raw)) seenMem.add(k);
+  } catch { /* private mode or corrupt value: start empty */ }
+  return seenMem;
+}
+
+export function markHint(key) {
+  if (!key) return;
+  const s = seenSet();
+  s.add(key);
+  try { localStorage.setItem(HINTS_KEY, JSON.stringify(Object.fromEntries([...s].map((k) => [k, 1])))); } catch { /* ignore */ }
+}
+
+export function hintSeen(key) {
+  return !!key && seenSet().has(key);
+}
+
+const countChars = (text) => Array.from(String(text)).filter((c) => c.trim()).length;
+export function hintDwell(text) {
+  return Math.min(9000, Math.max(3200, 1600 + 160 * countChars(text)));
+}
+
+export function hint(key, text, { force = false, ms, hold = false } = {}) {
+  if (key && !force && hintSeen(key)) return Promise.resolve(false);
+  if (key && (current?.key === key || queue.some((q) => q.key === key))) return Promise.resolve(false);
+  if (!document.getElementById('hint-slot')) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    queue.push({ key, text, ms, hold, resolve });
+    pump();
+  });
+}
+
+function pump() {
+  clearTimeout(pumpTimer);
+  if (current || !queue.length) return;
+  const wait = busyUntil - performance.now();
+  if (wait > 0) { pumpTimer = setTimeout(pump, wait); return; }
+  const el = document.getElementById('hint-slot');
+  if (!el) { while (queue.length) queue.shift().resolve(false); return; }
+  const h = current = queue.shift();
+  if (h.key) markHint(h.key);
+  h.span = textSpan(el, 'hint-text', h.text);
+  el.classList.add('is-on');
+  el.parentElement?.classList.add('has-hint');
+  fadeIn(h.span, HINT_IN, 6);
+  dispatch(h, true);
+  if (!h.hold) h.timer = setTimeout(() => endHint(h), HINT_IN + (h.ms ?? hintDwell(h.text)));
+}
+
+function endHint(h) {
+  if (current !== h) return;
+  clearTimeout(h.timer);
+  const el = document.getElementById('hint-slot');
+  current = null;
+  busyUntil = performance.now() + HINT_OUT + HINT_GAP;
+  if (el) {
+    if (h.span) fadeOut(h.span, HINT_OUT);
+    el.classList.remove('is-on');
+    setTimeout(() => {
+      if (current) return; // a newer hint already took the slot
+      el.textContent = '';
+      el.parentElement?.classList.remove('has-hint');
+    }, HINT_OUT);
+  }
+  dispatch(h, false);
+  h.resolve(true);
+  pump();
+}
+
+export function clearHint() {
+  while (queue.length) queue.shift().resolve(false);
+  if (current) endHint(current);
+}
+
+function dispatch(h, on) {
+  try { window.dispatchEvent(new CustomEvent('birthsky:hint', { detail: { key: h.key, text: h.text, on } })); } catch { /* old WebViews */ }
+}
+
+// ------------------------------------------------------------------------------------------- press
+const PRESS_DOWN = 80, PRESS_UP = 240;
+
+function bindPress(el) {
+  if (el.__pressOff) return el.__pressOff;
+  let held = false, timer = 0;
+  const down = (e) => {
+    if ((e.button ?? 0) > 0 || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
+    held = true;
+    clearTimeout(timer);
+    el.classList.add('is-pressed');
+    el.style.transition = `opacity ${PRESS_DOWN}ms ${EASE_EXIT}`;
+    el.style.opacity = '0.45';
+  };
+  const up = () => {
+    if (!held) return;
+    held = false;
+    el.classList.remove('is-pressed');
+    el.style.transition = `opacity ${PRESS_UP}ms ${EASE_ENTER}`;
+    el.style.opacity = '';
+    timer = setTimeout(() => { if (!held) el.style.transition = ''; }, PRESS_UP + 20);
+  };
+  const evs = [['pointerdown', down], ['pointerup', up], ['pointercancel', up], ['pointerleave', up], ['blur', up]];
+  for (const [t, f] of evs) el.addEventListener(t, f, { passive: true });
+  el.__pressOff = () => {
+    for (const [t, f] of evs) el.removeEventListener(t, f);
+    clearTimeout(timer);
+    el.classList.remove('is-pressed');
+    el.style.opacity = '';
+    el.style.transition = '';
+    delete el.__pressOff;
+  };
+  return el.__pressOff;
+}
+
+export function press(target) {
+  const els = typeof target === 'string' ? $$(target)
+    : !target ? []
+    : target.nodeType === 1 ? [target]
+    : [...target];
+  const offs = els.map(bindPress);
+  return () => offs.forEach((off) => off());
 }

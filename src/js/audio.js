@@ -1,8 +1,29 @@
 // Generative "cosmic" score, synthesised live with Web Audio — no audio files, nothing licensed.
-// Layers: slow pad chords → shimmer bells → wind; one-shot cues for the time-rewind and the arrival;
-// and star notes for the "listen to your sky" sweep.
+// Layers: slow pad chords → sparse single bells → faint wind; one-shot cues for the rewind and the arrival;
+// star notes for selection and 聆听. Spec §9 「静谧」: fewer, softer, more space; no UI sounds, ever.
+//
+// Public API (class Cosmos; one instance per page)
+//   start()                          from a user gesture (the intro tap). Builds the graph, resumes the
+//                                    context, fades the master in over 5 s to 0.55 (stays silent if muted)
+//   setMuted(m)                      600 ms out / 1500 ms in; no-op when unchanged, so it never cuts the
+//                                    5 s start fade. Persisting the flag (birthsky:muted) is the caller's job
+//   bell(midi, vel, when = 0, { bright = 0.5, pan = 0, decay = 3.6 })
+//                                    one FM bell. Soft cues: 两个人 line done → bell(74, 0.15, 0, { bright: 0.25,
+//                                    decay: 4.5 }); ruler birth tick → bell(79, 0.12, 0, { bright: 0.2, decay: 3.2 })
+//   star(alt01, mag, bv, pan, when)  a star's note (selection and 聆听); velocity ≤ 0.40
+//   body(id, alt01, when)            the Moon's / a planet's note; velocity 0.40
+//   rewind(seconds)                  the rewind cue; call it when the spin starts. If arrive() comes early
+//                                    (跳过), the rest of the cue fades out instead of ringing on
+//   arrive()                         low bloom + 5-note bell chord, and the pad restarts on the home chord
+//   duck(on)                         聆听: pad to 0.5, ambient bells pause
+//   now() → seconds                  the audio clock (for scheduling notes)
+//   available                        false when Web Audio is missing
 
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+const MASTER = 0.55;
+const START_FADE = 5;
+const MUTE_OUT = 0.6, MUTE_IN = 1.5;
 
 // D major pentatonic; every chord below sits happily under it
 const PENTA = [2, 4, 6, 9, 11];
@@ -12,7 +33,20 @@ const CHORDS = [
   { root: 43, notes: [55, 62, 66, 69, 73] },   // Gmaj9(#11)
   { root: 45, notes: [52, 57, 62, 64, 71] },   // A6sus
 ];
-const CHORD_SECONDS = 11;
+const CHORD_SECONDS = 16;
+const PAD_GAIN = 0.8;              // × the original voice gains
+const PAD_LFO_DEPTH = 300;         // Hz
+const BELL_WAIT = [9000, 20000];   // ms between ambient bells
+const BELL_VEL = [0.14, 0.26];
+const WIND_GAIN = 0.028;
+const REWIND_SWELL = 0.05;
+const REWIND_NOTES = 12;
+const REWIND_VEL = [0.06, 0.18];
+const ARRIVE_BLOOM = 0.22;
+const ARRIVE_STEPS = [0, 2, 4, 5, 7];  // the old 7-note chord minus its two brightest notes
+const ARRIVE_VEL = 0.7;                // −30%
+const STAR_VEL_MAX = 0.40;
+const BODY_VEL = 0.40;
 
 function pentaNote(index) {
   // index 0 → D3, climbs the pentatonic scale
@@ -37,8 +71,10 @@ export class Cosmos {
     this.muted = false;
     this.running = false;
     this.chordIndex = 0;
-    this.timers = [];
+    this.padTimer = 0;
+    this.bellTimer = 0;
     this.listenDuck = 1;
+    this.cue = null; // the running rewind cue { end, bells, swell }
   }
 
   get available() {
@@ -56,7 +92,7 @@ export class Cosmos {
       const t = this.ctx.currentTime;
       this.master.gain.cancelScheduledValues(t);
       this.master.gain.setValueAtTime(0.0001, t);
-      this.master.gain.exponentialRampToValueAtTime(this.muted ? 0.0001 : 0.85, t + 3);
+      this.master.gain.exponentialRampToValueAtTime(this.muted ? 0.0001 : MASTER, t + START_FADE);
       this.nextChordAt = t + 0.1;
       this.schedule();
       this.ambientBells();
@@ -67,7 +103,8 @@ export class Cosmos {
   unlockIOS() {
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* not supported */ }
     // Playing an (inaudible) media element moves iOS into the "playback" audio session so Web Audio
-    // is heard even with the ring/silent switch on silent.
+    // is heard even with the ring/silent switch on silent. Only while sound is on: it would otherwise
+    // interrupt the listener's own music for nothing.
     if (!this.silentEl) {
       const el = document.createElement('audio');
       el.setAttribute('x-webkit-airplay', 'deny');
@@ -77,7 +114,7 @@ export class Cosmos {
       el.src = silentWavUrl();
       this.silentEl = el;
     }
-    this.silentEl.play().catch(() => {});
+    if (!this.muted) this.silentEl.play().catch(() => {});
   }
 
   build() {
@@ -118,7 +155,7 @@ export class Cosmos {
     this.padFilter.frequency.value = 1100;
     this.padFilter.Q.value = 0.4;
     const lfo = ctx.createOscillator(), lfoAmt = ctx.createGain();
-    lfo.frequency.value = 0.045; lfoAmt.gain.value = 450;
+    lfo.frequency.value = 0.045; lfoAmt.gain.value = PAD_LFO_DEPTH;
     lfo.connect(lfoAmt).connect(this.padFilter.frequency);
     lfo.start();
     const padDry = ctx.createGain(), padWet = ctx.createGain();
@@ -143,7 +180,7 @@ export class Cosmos {
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
       if (document.hidden) { this.ctx.suspend?.(); this.silentEl?.pause(); }
-      else if (this.running) { this.ctx.resume?.(); this.silentEl?.play().catch(() => {}); }
+      else if (this.running) { this.ctx.resume?.(); if (!this.muted) this.silentEl?.play().catch(() => {}); }
     });
   }
 
@@ -169,31 +206,43 @@ export class Cosmos {
   }
 
   setMuted(m) {
+    m = !!m;
+    if (m === this.muted) return;
     this.muted = m;
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(t);
     this.master.gain.setValueAtTime(Math.max(0.0001, this.master.gain.value), t);
-    this.master.gain.exponentialRampToValueAtTime(m ? 0.0001 : 0.85, t + (m ? 0.6 : 1.5));
-    if (m) this.silentEl?.pause(); else if (this.running) this.silentEl?.play().catch(() => {});
+    this.master.gain.exponentialRampToValueAtTime(m ? 0.0001 : MASTER, t + (m ? MUTE_OUT : MUTE_IN));
+    if (m) this.silentEl?.pause();
+    else if (this.running) this.silentEl?.play().catch(() => {});
+  }
+
+  /** false while the page is hidden or the context is suspended: nothing may pile up on a frozen clock */
+  audible() {
+    const st = this.ctx.state;
+    return this.running && !document.hidden && (st === undefined || st === 'running');
   }
 
   // ------------------------------------------------------------ pad
   schedule() {
     if (!this.running) return;
     const ctx = this.ctx;
+    // the clock ran on while our timers were throttled: resync instead of stacking the missed chords at once
+    if (this.nextChordAt < ctx.currentTime - 0.5) this.nextChordAt = ctx.currentTime + 0.1;
     while (this.nextChordAt < ctx.currentTime + 1.5) {
       this.playChord(CHORDS[this.chordIndex % CHORDS.length], this.nextChordAt, CHORD_SECONDS);
       this.chordIndex++;
       this.nextChordAt += CHORD_SECONDS;
     }
-    this.timers.push(setTimeout(() => this.schedule(), 500));
+    clearTimeout(this.padTimer);
+    this.padTimer = setTimeout(() => this.schedule(), 500);
   }
 
   playChord(chord, t0, dur) {
     const ctx = this.ctx;
-    const voices = [...chord.notes.map((m, i) => ({ m, g: 0.045 - i * 0.004, pan: (i / (chord.notes.length - 1)) * 1.2 - 0.6 })),
-      { m: chord.root, g: 0.06, pan: 0, sub: true }];
+    const voices = [...chord.notes.map((m, i) => ({ m, g: (0.045 - i * 0.004) * PAD_GAIN, pan: (i / (chord.notes.length - 1)) * 1.2 - 0.6 })),
+      { m: chord.root, g: 0.06 * PAD_GAIN, pan: 0, sub: true }];
     for (const v of voices) {
       const g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, t0);
@@ -216,7 +265,8 @@ export class Cosmos {
   }
 
   // ------------------------------------------------------------ bells
-  bell(midi, vel, when = 0, { bright = 0.5, pan = 0, decay = 3.6 } = {}) {
+  /** One FM bell. `out` (internal) routes it through a cue's own gain instead of straight to the bell bus. */
+  bell(midi, vel, when = 0, { bright = 0.5, pan = 0, decay = 3.6, out = null } = {}) {
     if (!this.ctx || !this.running) return;
     const ctx = this.ctx, t = Math.max(ctx.currentTime, when || ctx.currentTime);
     const f = mtof(midi);
@@ -238,24 +288,24 @@ export class Cosmos {
     const p = this.panner(pan);
     car.connect(amp).connect(p);
     partial.connect(pg).connect(p);
-    p.connect(this.bellBus);
+    p.connect(out || this.bellBus);
     for (const o of [car, mod, partial]) { o.start(t); o.stop(t + decay + 0.1); }
   }
 
+  /** Sparse ambience: one quiet note every 9–20 s. */
   ambientBells() {
     if (!this.running) return;
-    const wait = 2600 + Math.random() * 5200;
-    this.timers.push(setTimeout(() => {
-      if (!this.muted && this.listenDuck > 0.5) {
+    const wait = BELL_WAIT[0] + Math.random() * (BELL_WAIT[1] - BELL_WAIT[0]);
+    clearTimeout(this.bellTimer);
+    this.bellTimer = setTimeout(() => {
+      if (!this.muted && this.listenDuck > 0.5 && this.audible()) {
         const base = 10 + Math.floor(Math.random() * 6);
-        const count = Math.random() < 0.3 ? 3 : 1;
-        for (let i = 0; i < count; i++) {
-          this.bell(pentaNote(base + i * 2), 0.28 + Math.random() * 0.2, this.ctx.currentTime + i * 0.23,
-            { bright: 0.2 + Math.random() * 0.4, pan: Math.random() * 1.4 - 0.7, decay: 4.5 });
-        }
+        const vel = BELL_VEL[0] + Math.random() * (BELL_VEL[1] - BELL_VEL[0]);
+        this.bell(pentaNote(base), vel, this.ctx.currentTime,
+          { bright: 0.15 + Math.random() * 0.25, pan: Math.random() * 1.4 - 0.7, decay: 4.5 });
       }
       this.ambientBells();
-    }, wait));
+    }, wait);
   }
 
   // ------------------------------------------------------------ wind
@@ -276,7 +326,7 @@ export class Cosmos {
     lfo.frequency.value = 0.03; la.gain.value = 380;
     lfo.connect(la).connect(bp.frequency);
     const g = ctx.createGain();
-    g.gain.value = 0.05;
+    g.gain.value = WIND_GAIN;
     src.connect(bp).connect(g);
     g.connect(this.master); g.connect(this.revSend);
     src.start(); lfo.start();
@@ -284,13 +334,19 @@ export class Cosmos {
   }
 
   // ------------------------------------------------------------ cues
-  /** The whoosh while time runs backwards; lands at `seconds`. */
+  /** The whoosh while time runs backwards; lands at `seconds`. Call it when the spin starts. */
   rewind(seconds) {
     if (!this.ctx || !this.running) return;
     const ctx = this.ctx, t = ctx.currentTime, end = t + seconds;
+    this.fadeCue(t, 0.05); // a rewind that restarts cuts the previous cue short
     this.padBus.gain.cancelScheduledValues(t);
     this.padBus.gain.setTargetAtTime(0.35, t, 0.6);
-    this.padBus.gain.setTargetAtTime(1, end + 0.2, 1.5);
+    this.padBus.gain.setTargetAtTime(this.padLevel(), end + 0.2, 1.5);
+    // the cue's own gains, so an early arrival (跳过) can fade what is still to come
+    const bells = ctx.createGain(), swell = ctx.createGain();
+    bells.connect(this.bellBus);
+    swell.connect(this.master); swell.connect(this.revSend);
+    this.cue = { end, bells, swell };
     // reverse-cymbal swell
     const len = Math.floor(ctx.sampleRate * (seconds + 0.2));
     const buf = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -306,45 +362,72 @@ export class Cosmos {
     hp.frequency.exponentialRampToValueAtTime(5200, end);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.09, end - 0.05);
+    g.gain.exponentialRampToValueAtTime(REWIND_SWELL, Math.max(t + 0.01, end - 0.05));
     g.gain.exponentialRampToValueAtTime(0.0001, end + 0.08);
-    src.connect(hp).connect(g);
-    g.connect(this.master); g.connect(this.revSend);
+    src.connect(hp).connect(g).connect(swell);
     src.start(t); src.stop(end + 0.3);
+    // release the cue's gains once the swell has stopped and the last glass note has rung out (audio clock)
+    src.onended = () => setTimeout(() => { try { bells.disconnect(); swell.disconnect(); } catch { /* gone */ } }, 2600);
     // rising glass arpeggio, accelerating
-    const n = 22;
+    const n = REWIND_NOTES;
     for (let i = 0; i < n; i++) {
       const k = i / (n - 1);
       const when = t + seconds * (1 - Math.pow(1 - k, 1.7)) * 0.96;
-      this.bell(pentaNote(6 + Math.round(k * 13)), 0.08 + 0.18 * k, when, { bright: 0.5, pan: Math.sin(i * 1.7) * 0.6, decay: 2.2 });
+      this.bell(pentaNote(6 + Math.round(k * 13)), REWIND_VEL[0] + (REWIND_VEL[1] - REWIND_VEL[0]) * k, when,
+        { bright: 0.5, pan: Math.sin(i * 1.7) * 0.6, decay: 2.2, out: bells });
     }
   }
 
-  /** Arrival: a low bloom and a wide bell chord. */
+  /** Fades what is left of the rewind cue (only if it has not landed yet). */
+  fadeCue(t, tau = 0.12) {
+    const cue = this.cue;
+    if (!cue) return false;
+    this.cue = null;
+    if (t >= cue.end - 0.25) return false; // landed naturally: let the last notes ring
+    for (const g of [cue.bells, cue.swell]) {
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(1, t);
+      g.gain.setTargetAtTime(0.0001, t, tau);
+    }
+    return true;
+  }
+
+  /** The pad level outside the rewind: ducked while 聆听 plays. */
+  padLevel() {
+    return this.listenDuck < 1 ? 0.5 : 1;
+  }
+
+  /** Arrival: a low bloom and a soft bell chord; the pad restarts on the home chord. */
   arrive() {
     if (!this.ctx || !this.running) return;
     const ctx = this.ctx, t = ctx.currentTime;
+    if (this.fadeCue(t)) {
+      // skipped: bring the pad back now instead of at the old landing time
+      this.padBus.gain.cancelScheduledValues(t);
+      this.padBus.gain.setTargetAtTime(this.padLevel(), t + 0.2, 1.5);
+    }
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'sine';
     o.frequency.setValueAtTime(92, t);
     o.frequency.exponentialRampToValueAtTime(44, t + 1.6);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.45, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(ARRIVE_BLOOM, t + 0.03);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 3.8);
     o.connect(g); g.connect(this.master); g.connect(this.revSend);
     o.start(t); o.stop(t + 4);
-    [0, 2, 4, 5, 7, 9, 12].forEach((k, i) => {
-      this.bell(pentaNote(5 + k), 0.34 - i * 0.025, t + 0.05 + i * 0.07, { bright: 0.35, pan: (i % 2 ? 1 : -1) * i * 0.1, decay: 6 });
+    ARRIVE_STEPS.forEach((k, i) => {
+      this.bell(pentaNote(5 + k), (0.34 - i * 0.025) * ARRIVE_VEL, t + 0.05 + i * 0.07,
+        { bright: 0.35, pan: (i % 2 ? 1 : -1) * i * 0.1, decay: 6 });
     });
     // restart the progression on the home chord so the arrival lands on "I"
     this.chordIndex = 0;
     this.nextChordAt = t + 0.4;
   }
 
-  /** Star note for the listening sweep. alt01: 0 horizon … 1 zenith. */
+  /** Star note for selection and 聆听. alt01: 0 horizon … 1 zenith; brighter stars are louder, ≤ 0.40. */
   star(alt01, mag, bv, pan, when) {
     const idx = Math.round(alt01 * 12) + 2;
-    const vel = Math.max(0.12, Math.min(0.62, 0.62 - (mag + 1) * 0.1));
+    const vel = Math.max(0.08, Math.min(STAR_VEL_MAX, STAR_VEL_MAX - (mag + 1) * 0.065));
     const bright = Math.max(0, Math.min(1, 0.8 - bv * 0.45));
     this.bell(pentaNote(idx), vel, when, { bright, pan, decay: 2.6 + (3 - Math.min(3, mag)) * 0.6 });
   }
@@ -352,14 +435,14 @@ export class Cosmos {
   body(id, alt01, when) {
     const notes = { Moon: 38, Venus: 81, Jupiter: 45, Saturn: 43, Mars: 52, Mercury: 76, Sun: 50 };
     const m = notes[id] ?? 50;
-    this.bell(m + (alt01 > 0.5 ? 12 : 0), 0.45, when, { bright: 0.15, pan: 0, decay: 7 });
+    this.bell(m + (alt01 > 0.5 ? 12 : 0), BODY_VEL, when, { bright: 0.15, pan: 0, decay: 7 });
   }
 
   duck(on) {
     this.listenDuck = on ? 0.4 : 1;
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    this.padBus.gain.setTargetAtTime(on ? 0.5 : 1, t, 0.8);
+    this.padBus.gain.setTargetAtTime(this.padLevel(), t, 0.8);
   }
 
   now() {

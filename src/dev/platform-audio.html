@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>audio · dev</title>
+<link rel="icon" href="data:,">
+<!-- Dev page (not shipped): drives audio.js through start / rewind / skip / arrive / star / mute and reports
+     gains, node counts and scheduling. Driven by tools/dev/platform-audio.mjs (autoplay allowed). -->
+<style>html, body { margin: 0; background: #030407; color: #EFE8DA; font: 13px/1.6 -apple-system, sans-serif; } pre { padding: 16px; white-space: pre-wrap; }</style>
+</head>
+<body>
+<pre id="out"></pre>
+<script type="module">
+  import { Cosmos } from '../js/audio.js';
+  window.Cosmos = Cosmos;
+  // count node creation so leaks or runaway scheduling show up
+  window.__nodes = {};
+  const proto = (window.AudioContext || window.webkitAudioContext).prototype;
+  const base = Object.getPrototypeOf(proto) && 'createGain' in Object.getPrototypeOf(proto) ? Object.getPrototypeOf(proto) : proto;
+  for (const m of ['createOscillator', 'createGain', 'createBufferSource', 'createBiquadFilter', 'createStereoPanner', 'createConvolver', 'createDelay', 'createDynamicsCompressor', 'createBuffer']) {
+    const f = base[m];
+    base[m] = function (...args) { window.__nodes[m] = (window.__nodes[m] || 0) + 1; return f.apply(this, args); };
+  }
+  window.__ready = true;
+</script>
+</body>
+</html>

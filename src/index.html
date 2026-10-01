@@ -3,21 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>你来的那晚 · 看看你出生那晚的星空</title>
-<meta name="description" content="输入生日和出生城市，回到你出生那一刻真实的星空：银河、月相、行星与星座。还能生成海报，和朋友星空合盘。">
-<meta name="theme-color" content="#04060d">
+<title>你来的那晚</title>
+<meta name="description" content="写下生日和出生的城，回到你来的那一夜，抬头看那时真实的星空。">
+<meta name="theme-color" content="#030407">
 <meta name="format-detection" content="telephone=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta property="og:type" content="website">
-<meta property="og:title" content="你来的那晚 · 看看你出生那晚的星空">
-<meta property="og:description" content="每个人出生的那一夜，头顶都有一片独一无二的星空。">
+<meta property="og:title" content="你来的那晚">
+<meta property="og:description" content="写下生日和出生的城，回到你来的那一夜，抬头看那时真实的星空。">
 <meta property="og:image" content="assets/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="preload" href="assets/fonts/cormorant-garamond-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/nawan-serif-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/cormorant-lining-500.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles/main.css">
 <!--dev:start-->
 <script type="importmap">{"imports":{"astronomy-engine":"/node_modules/astronomy-engine/esm/astronomy.js","qrcode-generator":"/node_modules/qrcode-generator/dist/qrcode.mjs"}}</script>
@@ -26,192 +27,264 @@
 <body>
 <img class="wx-thumb" src="assets/share-thumb.jpg" alt="" aria-hidden="true">
 <canvas id="sky" aria-hidden="true"></canvas>
-<canvas id="overlay" aria-label="星空，可拖动旋转、双指缩放、点击星星查看"></canvas>
+<canvas id="overlay" aria-label="星空，可拖动环顾、双指缩放、轻触星星"></canvas>
 
-<main id="app">
-  <!-- 开场 -->
-  <section class="screen intro is-active" id="intro">
-    <div class="intro-body">
-      <p class="eyebrow latin" id="intro-eyebrow">The Night You Arrived</p>
-      <h1 class="title" id="intro-title">你来的那晚</h1>
-      <p class="lede" id="intro-lede">每个人出生的那一夜，<br>头顶都有一片独一无二的星空。</p>
+<main id="app" data-scene="intro">
+  <div id="scrim-b" class="scrim-b" aria-hidden="true"></div>
+  <div id="scrim-t" class="scrim-t" aria-hidden="true"></div>
+
+  <!-- S1 / S2 开场 -->
+  <section id="intro" class="layer intro" aria-label="你来的那晚">
+    <h1 class="v-title fx" id="intro-title">你来的那晚</h1>
+    <p class="lede fx" id="intro-lede">你看见的每一颗星，都是它很久以前的样子。<br>现在，让天空退回你来的那一刻。</p>
+    <div class="intro-cta fx" id="intro-cta">
+      <button class="tbtn primary is-loading" id="btn-start" type="button" aria-disabled="true"><span class="lbl">载入星表 0%</span><i class="uline" aria-hidden="true"><i class="fill"></i></i></button>
+      <button class="tbtn secondary" id="btn-start-2" type="button" hidden>换一个生日</button>
     </div>
-    <div class="intro-actions">
-      <button class="btn-primary" id="btn-start" disabled>
-        <span class="btn-label">正在点亮星空</span>
-        <span class="btn-progress"><i></i></span>
-      </button>
-      <p class="hint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>建议戴上耳机，打开声音</p>
-    </div>
-    <p class="intro-foot latin-num" id="intro-foot">真实星表 · 8,920 颗肉眼可见的恒星 · 银河与行星</p>
+    <p class="intro-hint fx" id="intro-hint">戴上耳机，夜有它的声音</p>
+    <button class="tbtn quiet intro-about fx" id="btn-about" type="button">关于</button>
   </section>
 
-  <!-- 填写 -->
-  <section class="sheet form-sheet" id="form" aria-hidden="true">
-    <div class="sheet-grip"></div>
-    <p class="eyebrow" id="form-eyebrow">回到那一夜</p>
-    <h2 id="form-title">你是哪一天来到这个世界的？</h2>
-    <label class="field">
-      <span>名字</span>
-      <input id="f-name" maxlength="12" placeholder="可不填 · 会写在海报上" autocomplete="off" enterkeyhint="next">
-    </label>
-    <div class="row">
-      <label class="field">
-        <span>出生日期</span>
-        <input id="f-date" type="date" min="1900-01-01" required>
-      </label>
-      <label class="field" id="f-time-wrap">
-        <span>出生时间</span>
-        <input id="f-time" type="time" value="22:00">
-      </label>
+  <!-- S3 填写 -->
+  <section id="form" class="layer form" aria-hidden="true" aria-labelledby="form-title">
+    <button class="tbtn back fx" id="form-back" type="button">返回</button>
+    <div class="form-col" id="form-col">
+      <p class="f-over fx" id="form-over" hidden></p>
+      <h2 class="f-q fx" id="form-title">你是哪一天来的？</h2>
+      <div class="f-edit" id="form-edit">
+        <label class="field f-name fx" id="f-name-field">
+          <span class="f-label" id="f-name-label">名字（可不填）</span>
+          <input class="f-input" id="f-name" type="text" maxlength="24" placeholder="会写进字幕和图片里" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next">
+        </label>
+        <div class="f-row fx" id="f-row">
+          <div class="field f-date" id="f-date" role="group" aria-labelledby="f-date-label">
+            <span class="f-label" id="f-date-label">出生日期</span>
+            <span class="f-digits">
+              <input class="f-num w4" id="f-y" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="年"><span class="f-unit" aria-hidden="true">年</span>
+              <input class="f-num w2" id="f-m" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="月"><span class="f-unit" aria-hidden="true">月</span>
+              <input class="f-num w2" id="f-d" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="日"><span class="f-unit" aria-hidden="true">日</span>
+            </span>
+          </div>
+          <div class="field f-time" id="f-time" role="group" aria-labelledby="f-time-label">
+            <span class="f-label" id="f-time-label">出生时间</span>
+            <span class="f-digits">
+              <input class="f-num w2" id="f-hh" type="text" inputmode="numeric" pattern="[0-9]*" value="22" autocomplete="off" enterkeyhint="next" aria-label="时"><span class="f-colon" aria-hidden="true">:</span><input class="f-num w2" id="f-mm" type="text" inputmode="numeric" pattern="[0-9]*" value="00" autocomplete="off" enterkeyhint="done" aria-label="分">
+            </span>
+          </div>
+        </div>
+        <button class="f-check fx" id="f-unknown" type="button" role="checkbox" aria-checked="false"><i aria-hidden="true"></i><span>不记得具体时间，按当晚 22:00</span></button>
+        <button class="field f-city fx" id="f-city" type="button" aria-haspopup="dialog">
+          <span class="f-label">出生城市</span>
+          <span class="f-value is-empty" id="f-city-value">选择城市</span>
+        </button>
+      </div>
+      <div class="f-confirm fx" id="form-confirm" hidden>
+        <p class="f-line" id="f-confirm-line"></p>
+      </div>
+      <p class="f-err" id="f-err" role="alert" aria-live="assertive"></p>
+      <div class="f-go fx" id="f-go">
+        <button class="tbtn primary" id="btn-go" type="button"><span class="lbl">出发</span><i class="uline" aria-hidden="true"></i></button>
+        <button class="tbtn secondary" id="btn-go-2" type="button" hidden>换一个生日</button>
+      </div>
+      <p class="fine fx" id="f-fine">你的生日只在这台手机上计算和保存，不会上传。</p>
     </div>
-    <label class="check"><input type="checkbox" id="f-unknown"><i></i><span>不记得具体时间，按当晚 22:00</span></label>
-    <label class="field city">
-      <span>出生城市</span>
-      <input id="f-city" placeholder="如 杭州、成都、Toronto" autocomplete="off" enterkeyhint="done">
-      <ul class="suggest" id="f-suggest" role="listbox"></ul>
-    </label>
-    <p class="form-err" id="f-err" role="alert"></p>
-    <button class="btn-primary wide" id="btn-go"><span class="btn-label">回到那一夜</span></button>
-    <p class="fine">只在你的手机上计算和保存，我们没有服务器。</p>
   </section>
 
-  <!-- 时光倒流 -->
-  <section class="rewind" id="rewind" aria-live="polite">
-    <p class="rw-label">时 光 倒 流</p>
-    <p class="rw-date latin-num" id="rw-date"></p>
-    <p class="rw-sub" id="rw-sub"></p>
+  <!-- S3b 选择城市 -->
+  <section id="city-page" class="layer city-page" aria-hidden="true" role="dialog" aria-label="选择城市">
+    <div class="cp-bar">
+      <input class="cp-input" id="city-q" type="text" placeholder="输入城市，如 杭州、成都、Toronto" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" role="combobox" aria-controls="city-list" aria-expanded="true">
+      <button class="tbtn cp-cancel" id="city-cancel" type="button">取消</button>
+    </div>
+    <div class="cp-scroll" id="city-scroll">
+      <p class="cp-head" id="city-head">常用</p>
+      <ul class="cp-list" id="city-list" role="listbox"></ul>
+      <p class="cp-note" id="city-note" hidden></p>
+    </div>
   </section>
 
-  <!-- 抵达字幕 -->
-  <section class="arrival" id="arrival">
-    <p class="arr-meta latin-num" id="arr-meta"></p>
-    <p class="arr-line" id="arr-line">这是你来的那晚</p>
+  <!-- S4 时光倒流 · S5 抵达 -->
+  <section id="rewind" class="layer rewind" aria-hidden="true">
+    <button class="tbtn quiet rw-skip" id="rw-skip" type="button" hidden>跳过</button>
+    <div class="rw-block" id="rw-block">
+      <p class="title-card rw-card" id="rw-card" aria-live="polite"></p>
+      <div class="rw-main" id="rw-main">
+        <div class="odo" id="rw-date" role="img" aria-label=""></div>
+        <p class="rw-sub" id="rw-sub"><span class="rs a" id="rw-sub-a"></span><span class="rs b" id="rw-sub-b"></span></p>
+      </div>
+    </div>
   </section>
 
-  <!-- 星空界面 -->
-  <section class="hud" id="hud">
-    <header class="hud-top">
-      <div class="who">
-        <p class="eyebrow" id="h-eyebrow">你来的那晚</p>
-        <h2 id="h-title"></h2>
-        <p class="meta latin-num" id="h-meta"></p>
+  <!-- S6–S13 舞台：字幕、名条、摘要、元信息、行动、开关 -->
+  <section id="stage" class="stage" aria-label="那一晚">
+    <div class="cap-wrap sl" id="cap-wrap">
+      <div class="caption" id="caption" role="button" tabindex="0" aria-live="polite">
+        <p class="cap-text" id="cap-text"></p>
       </div>
-      <div class="tools">
-        <button class="icon-btn" id="btn-sound" aria-label="音乐开关"></button>
-        <button class="icon-btn" id="btn-culture" aria-label="切换星座体系"><span>星官</span></button>
-        <button class="icon-btn" id="btn-view" aria-label="仰望视角"></button>
-      </div>
-    </header>
-
-    <div class="dome-slot" id="dome-slot"></div>
-
-    <div class="guest-bar" id="guest-bar">
-      <p id="guest-text"></p>
-      <div class="guest-actions">
-        <button class="btn-primary small" id="btn-guest-mine">看看我的星空</button>
-        <button class="btn-ghost small" id="btn-guest-hepan">和 TA 合盘</button>
+      <div class="cap-acts" id="cap-acts"></div>
+    </div>
+    <div class="strip sl" id="strip" aria-live="polite">
+      <div class="strip-in" id="strip-in">
+        <p class="s-head"><span class="s-name" id="s-name"></span><span class="s-latin" id="s-latin"></span></p>
+        <p class="s-meta" id="s-meta"></p>
+        <p class="s-story" id="s-story"></p>
       </div>
     </div>
-
-    <div class="time-strip" id="time-strip">
-      <button class="icon-btn tiny" id="btn-night" aria-label="播放这一夜"></button>
-      <div class="scrub">
-        <input type="range" id="scrub" min="0" max="1000" value="500" aria-label="那一夜的时间">
-        <i class="birth-mark" id="birth-mark"></i>
-      </div>
-      <span class="scrub-time latin-num" id="scrub-time">22:00</span>
-    </div>
-
-    <nav class="dock" id="dock">
-      <button id="btn-listen"><i class="ico"></i><span>聆听星空</span></button>
-      <button id="btn-poster"><i class="ico"></i><span>生成海报</span></button>
-      <button id="btn-hepan"><i class="ico"></i><span>星空合盘</span></button>
-      <button id="btn-share"><i class="ico"></i><span>分享</span></button>
+    <div class="summary-slot sl" id="summary-slot"><button class="summary" id="summary" type="button"></button></div>
+    <p class="meta sl" id="meta"></p>
+    <nav class="actions sl" id="actions" data-variant="own" aria-label="操作">
+      <button class="aw" id="a-listen" data-a="listen" type="button">聆听</button>
+      <button class="aw" id="a-keep" data-a="keep" type="button">留存</button>
+      <button class="aw" id="a-pair" data-a="pair" type="button">两个人</button>
+      <button class="aw" id="a-share" data-a="share" type="button">分享</button>
+      <button class="aw" id="a-mine" data-a="mine" type="button" hidden>我的那晚</button>
     </nav>
-
-    <aside class="facts" id="facts">
-      <button class="facts-handle" id="facts-handle" aria-expanded="false">
-        <span class="grip"></span>
-        <span class="facts-peek" id="facts-peek"></span>
-      </button>
-      <div class="facts-body" id="facts-body"></div>
-    </aside>
-
-    <div class="star-card" id="star-card" role="dialog" aria-live="polite"></div>
-  </section>
-
-  <!-- 海报 -->
-  <section class="modal poster-modal" id="poster" aria-hidden="true">
-    <div class="modal-inner">
-      <header class="modal-head">
-        <h3>星空海报</h3>
-        <button class="icon-btn close" data-close aria-label="关闭"></button>
-      </header>
-      <div class="poster-stage" id="poster-stage">
-        <img id="poster-img" alt="星空海报">
-        <div class="poster-loading" id="poster-loading"><i></i>正在冲印星空…</div>
-      </div>
-      <p class="poster-tip" id="poster-tip">长按图片保存，发到朋友圈</p>
-      <div class="chips" id="poster-styles" role="radiogroup"></div>
-      <label class="field compact"><span>标题</span><input id="p-title" maxlength="18"></label>
-      <label class="field compact"><span>寄语</span><input id="p-line" maxlength="28"></label>
-      <div class="modal-actions">
-        <button class="btn-primary" id="btn-save"><span class="btn-label">保存高清海报</span></button>
-      </div>
+    <div class="listen-status sl" id="listen-status"><span class="ls-on">正在聆听</span><button class="aw" id="listen-stop" type="button">停</button></div>
+    <button class="tip sl" id="tip" type="button" aria-label="请我们喝杯咖啡" hidden><span class="tip-l" id="tip-l"></span><img class="tip-img" id="tip-img" alt="" draggable="false"></button>
+    <div class="toggles sl" id="toggles">
+      <button class="tg" id="t-culture" type="button">星官</button>
+      <button class="tg" id="t-sound" type="button">有声</button>
+      <button class="tg" id="t-gyro" type="button" hidden>体感</button>
     </div>
   </section>
 
-  <!-- 合盘邀请 -->
-  <section class="modal hepan-modal" id="hepan-invite" aria-hidden="true">
-    <div class="modal-inner">
-      <header class="modal-head">
-        <h3>星空合盘</h3>
-        <button class="icon-btn close" data-close aria-label="关闭"></button>
-      </header>
-      <div class="hepan-illus" aria-hidden="true"><i></i><i></i></div>
-      <p class="modal-lede">把你们出生那晚的两片星空叠在一起，<br>看看有多少颗星，同时照着你们两个人。</p>
-      <div class="modal-actions stack">
-        <button class="btn-primary" id="btn-invite"><span class="btn-label">邀请 TA 来合盘</span></button>
-        <button class="btn-ghost" id="btn-manual">我知道 TA 的生日，直接填写</button>
+  <!-- S12 整夜 -->
+  <section id="ruler" class="layer ruler" aria-hidden="true" aria-label="那一夜的时间">
+    <p class="r-readout fx" id="r-readout"><span class="r-time" id="r-time">22:00</span><span class="r-rel" id="r-rel">出生那一刻</span></p>
+    <div class="r-band fx" id="r-band" role="slider" tabindex="0" aria-label="那一夜的时间">
+      <div class="r-strip" id="r-strip"></div>
+      <i class="r-index" aria-hidden="true"></i>
+    </div>
+    <div class="r-btns fx" id="r-btns">
+      <button class="aw r-play" id="r-play" type="button">播放这一夜</button>
+      <button class="aw r-back" id="r-back" type="button">回到那一刻</button>
+      <button class="aw r-done" id="r-done" type="button">完成</button>
+    </div>
+  </section>
+
+  <!-- S16 两个人 · 邀请 -->
+  <section id="pair-invite" class="layer pair-invite" aria-hidden="true" aria-labelledby="pi-title">
+    <div class="pi-col">
+      <h2 class="title-card fx" id="pi-title">两个人的星空</h2>
+      <p class="pi-body fx" id="pi-body">把你们来的那两晚叠在一起，<br>看哪些星，照过你们两个人。</p>
+      <div class="pi-acts fx" id="pi-acts">
+        <button class="tbtn primary" id="pi-send" type="button"><span class="lbl">发给 TA，请 TA 填生日</span><i class="uline" aria-hidden="true"></i></button>
+        <button class="tbtn secondary" id="pi-manual" type="button">我知道 TA 的生日</button>
+        <button class="tbtn secondary" id="pi-cancel" type="button">取消</button>
       </div>
     </div>
   </section>
 
-  <!-- 合盘结果 -->
-  <section class="screen hepan-result" id="hepan">
-    <header class="hp-top">
-      <button class="icon-btn back" id="btn-hp-back" aria-label="返回"></button>
-      <p class="eyebrow">星 空 合 盘</p>
-      <span></span>
-    </header>
-    <div class="hp-stage" id="hp-stage">
-      <canvas id="hp-canvas"></canvas>
+  <!-- S17 两个人 · 结果 -->
+  <section id="pair" class="layer pair" aria-hidden="true">
+    <p class="pair-where fx" id="pair-where"></p>
+    <button class="tbtn pair-switch fx" id="pair-switch" type="button"></button>
+    <div class="pair-block fx" id="pair-block">
+      <div class="p-dates" id="p-dates"></div>
+      <p class="p-head" id="p-head"></p>
+      <div class="p-lines" id="p-lines"></div>
+      <p class="p-def" id="p-def"></p>
+      <div class="ad-slot" id="pair-slot"></div>
     </div>
-    <div class="hp-body" id="hp-body"></div>
   </section>
 
-  <!-- 关于 -->
-  <section class="modal about-modal" id="about" aria-hidden="true">
-    <div class="modal-inner">
-      <header class="modal-head">
-        <h3>关于「你来的那晚」</h3>
-        <button class="icon-btn close" data-close aria-label="关闭"></button>
+  <!-- S10 那一夜 · S20 关于 -->
+  <section id="night" class="plate" data-kind="night" aria-hidden="true" role="dialog" aria-labelledby="night-title">
+    <div class="plate-sheet" id="night-sheet">
+      <header class="plate-head" id="night-head">
+        <h2 class="plate-title" id="night-title">那一夜</h2>
+        <p class="plate-meta" id="night-meta"></p>
+        <button class="tbtn plate-x" id="night-close" type="button">关闭</button>
       </header>
-      <div class="about-body" id="about-body"></div>
+      <div class="plate-body" id="night-body">
+        <div class="plate-rows" id="night-rows"></div>
+        <p class="plate-note" id="night-note" hidden></p>
+        <div class="ad-slot" id="night-slot"></div>
+        <div class="colophon" id="colophon"></div>
+        <div class="plate-foot" id="night-foot">
+          <button class="tbtn secondary" id="night-other" type="button">换一个生日</button>
+          <button class="tbtn secondary" id="night-close-2" type="button">关闭</button>
+        </div>
+      </div>
     </div>
   </section>
 
+  <!-- S14 留存 · 取景 (keep.js wires it) -->
+  <section id="keep" class="layer keep" data-format="wallpaper" aria-hidden="true" aria-label="留存">
+    <div class="kf-top fx" id="kf-top">
+      <button class="tbtn kf-cancel" id="kf-cancel" type="button">取消</button>
+      <div class="kf-tabs" role="tablist">
+        <button class="kf-tab is-active" id="kf-tab-wallpaper" data-format="wallpaper" role="tab" aria-selected="true" type="button">壁纸</button>
+        <button class="kf-tab" id="kf-tab-card" data-format="card" role="tab" aria-selected="false" type="button">便签</button>
+      </div>
+      <button class="kf-res" id="kf-res" type="button">1179 × 2556</button>
+    </div>
+    <div class="kf-frame" id="kf-frame">
+      <i class="kf-corner tl"></i><i class="kf-corner tr"></i><i class="kf-corner bl"></i><i class="kf-corner br"></i>
+      <div class="kf-ghost" id="kf-ghost" aria-hidden="true"><span class="kg-date" id="kg-date">9月30日 星期三</span><span class="kg-time">9:41</span></div>
+      <div class="kf-clockline" aria-hidden="true"><span>锁屏时间区域</span></div>
+      <div class="kf-text" id="kf-text" aria-hidden="true"></div>
+      <div class="kf-qr" id="kf-qr" aria-hidden="true"></div>
+    </div>
+    <p class="kf-note fx" id="kf-note"></p>
+    <div class="kf-plate fx" id="kf-plate">
+      <div class="kf-row">
+        <div class="kf-styles" role="radiogroup" aria-label="样式">
+          <button class="kf-opt is-active" data-style="night" role="radio" aria-checked="true" type="button">夜色</button>
+          <button class="kf-opt" data-style="mono" role="radio" aria-checked="false" type="button">黑白</button>
+          <button class="kf-opt" data-style="paper" role="radio" aria-checked="false" type="button" hidden>纸</button>
+        </div>
+        <button class="kf-opt kf-poem" id="kf-poem" type="button">换一首</button>
+      </div>
+      <div class="kf-row">
+        <button class="kf-opt" id="kf-textmode" type="button">文字：诗和日期</button>
+        <button class="kf-opt" id="kf-lines" type="button">连线：关</button>
+        <button class="kf-opt" id="kf-qr-t" type="button" hidden>二维码：开</button>
+      </div>
+      <div class="kf-row kf-last">
+        <label class="kf-write" id="kf-write"><span class="kf-wl">写一句</span><input class="kf-input" id="kf-sentence" type="text" maxlength="20" autocomplete="off" enterkeyhint="done"></label>
+        <button class="tbtn primary kf-go" id="kf-go" type="button"><span class="lbl">就这张</span><i class="uline" aria-hidden="true"><i class="fill"></i></i></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- S15 留存 · 成片 -->
+  <section id="keep-result" class="layer keep-result" aria-hidden="true">
+    <button class="tbtn kr-back" id="kr-back" type="button">返回取景</button>
+    <button class="tbtn kr-done" id="kr-done" type="button">完成</button>
+    <div class="kr-stage" id="kr-stage">
+      <img class="kr-snap" id="keep-snap" alt="" draggable="false">
+      <img class="kr-img" id="keep-img" alt="你来的那晚" draggable="false">
+    </div>
+    <div class="kr-foot" id="kr-foot">
+      <p class="kr-tip" id="kr-tip">长按图片，把这一夜存进手机</p>
+      <button class="tbtn primary kr-save" id="kr-save" type="button" hidden><span class="lbl">保存到相册</span><i class="uline" aria-hidden="true"></i></button>
+      <p class="kr-how" id="kr-how"></p>
+      <div class="ad-slot" id="keep-slot"></div>
+    </div>
+  </section>
+
+  <section class="tip-big" id="tip-big" aria-hidden="true" role="dialog">
+    <div class="tb-in"><img class="tb-img" id="tb-img" alt="收款码" draggable="false"><p class="tb-line" id="tb-line"></p><p class="tb-hint" id="tb-hint"></p></div>
+  </section>
+  <p class="hint-slot" id="hint-slot" aria-live="polite"></p>
+
+  <!-- S19 微信分享引导 -->
   <div class="share-guide" id="share-guide" aria-hidden="true">
-    <svg class="arrow" viewBox="0 0 120 120" aria-hidden="true"><path d="M20 110 C 40 60, 70 40, 104 16"/><path d="M84 14 L106 14 L100 36"/></svg>
-    <p id="share-guide-text">点击右上角 <b>···</b><br>发送给朋友，或分享到朋友圈</p>
+    <svg class="sg-arc" viewBox="0 0 80 132" aria-hidden="true"><path class="sg-path" pathLength="1" d="M36 118 C 36 74, 42 38, 58 12"/><path class="sg-chev" d="M53.5 14.1 L58 12 L58.4 17"/></svg>
+    <p class="l1" id="share-guide-l1">点右上角 ···</p>
+    <p class="l2" id="share-guide-l2"></p>
   </div>
+
+  <div class="cut" id="cut" aria-hidden="true"></div>
   <div class="toast" id="toast" role="status"></div>
+
+  <!-- S21 异常 -->
   <div class="fallback" id="fallback" hidden>
-    <p>你的浏览器暂不支持 WebGL，星空无法点亮。<br>试试用手机自带浏览器或更新微信后再打开。</p>
+    <h1 class="v-title">你来的那晚</h1>
+    <p class="fb-text" id="fallback-text">这个浏览器暂时点不亮星空。<br>换用手机自带的浏览器，或更新微信后再试。</p>
   </div>
 </main>
-<button class="about-link" id="btn-about" aria-label="关于">i</button>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
