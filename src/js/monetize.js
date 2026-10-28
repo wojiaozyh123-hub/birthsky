@@ -120,12 +120,16 @@ export function initAnalytics() {
   const a = CONFIG.analytics;
   if (analyticsOn) return;
   if (a.provider === 'busuanzi') {
-    // one page view per load; no counter shown, no events; a failure is silent
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = 'https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js';
-    s.onerror = () => s.remove();
-    document.head.appendChild(s);
+    // one page view per load; no counter shown, no events; a failure is silent. The script runs in
+    // count.html, whose address carries nothing: it sends the page's full address as the Referer, and
+    // here that would be a shared link with the person's birthday, city and name in its query.
+    const f = document.createElement('iframe');
+    f.src = 'count.html';
+    f.hidden = true;
+    f.tabIndex = -1;
+    f.setAttribute('aria-hidden', 'true');
+    f.referrerPolicy = 'no-referrer';
+    document.body.appendChild(f);
     analyticsOn = true;
   } else if (a.provider === 'baidu' && a.baidu.id) {
     window._hmt = window._hmt || [];

@@ -164,6 +164,7 @@ fs.writeFileSync(path.join(dist, 'index.html'), html);
 for (const dir of ['data', 'assets']) fs.cpSync(path.join(src, dir), path.join(dist, dir), { recursive: true });
 if (siteConfig().tip) fs.copyFileSync(TIP_SRC, path.join(dist, 'assets/tip-qr.png'));
 fs.copyFileSync(path.join(src, 'manifest.webmanifest'), path.join(dist, 'manifest.webmanifest'));
+fs.copyFileSync(path.join(src, 'count.html'), path.join(dist, 'count.html'));
 fs.writeFileSync(path.join(dist, '.nojekyll'), '');
 
 const size = (f) => `${(fs.statSync(f).size / 1024).toFixed(0)} KB`;
